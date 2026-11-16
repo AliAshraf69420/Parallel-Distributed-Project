@@ -1,4 +1,4 @@
 experiment,set,variant,threads,seconds,sum_r
-false-sharing,500MB,packed,8,0.1002,5856856052
-false-sharing,500MB,padded,8,0.0067,5856856052
+false-sharing,500MB,packed,8,0.0996,5856856052
+false-sharing,500MB,padded,8,0.0059,5856856052
 false-sharing,500MB,local,8,0.0056,5856856052

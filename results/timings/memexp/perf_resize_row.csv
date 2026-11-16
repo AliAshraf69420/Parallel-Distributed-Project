@@ -1,8 +1,8 @@
-# started on Mon Nov 16 12:50:26 2026
+# started on Mon Nov 16 18:13:58 2026
 
-1511338321,,cycles:u,321310453,83.00,,
-3288724171,,instructions:u,321551852,83.00,,
-18158169,,cache-references:u,322282138,83.00,,
-2387997,,cache-misses:u,322293040,83.00,,
-1257593962,,L1-dcache-loads:u,322289898,83.00,,
-4906041,,L1-dcache-load-misses:u,321574359,83.00,,
+1533407706,,cycles:u,328170305,83.00,,
+3291692253,,instructions:u,326432164,82.00,,
+18121864,,cache-references:u,329139916,83.00,,
+2334009,,cache-misses:u,329190907,83.00,,
+1259150730,,L1-dcache-loads:u,328298048,83.00,,
+4942009,,L1-dcache-load-misses:u,328939150,83.00,,

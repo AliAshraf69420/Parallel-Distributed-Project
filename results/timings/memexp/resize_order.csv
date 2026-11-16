@@ -1,3 +1,3 @@
 experiment,set,variant,images,seconds,us_per_image
-resize-order,500MB,row,971,0.3660,376.90
-resize-order,500MB,col,971,0.4105,422.81
+resize-order,500MB,row,971,0.3728,383.97
+resize-order,500MB,col,971,0.4539,467.44
