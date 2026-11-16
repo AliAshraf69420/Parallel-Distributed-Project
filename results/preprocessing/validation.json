@@ -6,7 +6,7 @@
     "pillow": "11.3.0",
     "libjpeg_turbo": "3.1.0"
   },
-  "seconds": 4.14,
+  "seconds": 7.1,
   "before": {
     "records_listed": 11788,
     "image_files_found": 11788,

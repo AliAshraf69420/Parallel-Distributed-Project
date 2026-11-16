@@ -125,6 +125,17 @@ Reference timings on the full set with `--preload`: `seq` ≈ 12.3 s, and `omp -
 
 ### 6. Phase 1 benchmarks and plots
 
+**One command for all of Phase 1** (steps 5 to 7 below, then the report; about 15 min):
+
+```bash
+scripts/run_phase1.sh                  # build, test, bench, memexp, perf, plots, report
+scripts/run_phase1.sh plots report     # only some steps
+scripts/run_phase1.sh --help           # list of steps
+```
+
+It overwrites the committed timings in `results/timings/`, which the report quotes, so
+reread the report afterwards if the numbers moved. The individual commands follow.
+
 Close other programs first (the runner warns if the load average is high).
 
 ```bash
@@ -166,6 +177,7 @@ The report's numbers were produced with each command's output redirected to
 ├── src/seq/, src/omp/    one main.cpp each: only the loops differ
 ├── src/threads/          std::thread pipeline: reader -> workers -> writer, bounded queues
 ├── src/memexp/           memory-hierarchy and false-sharing experiments
+├── scripts/run_phase1.sh all of Phase 1 in one command
 ├── scripts/bench/        benchmark runners (phase1.py)
 ├── plots/                plot + table scripts and their PNG output
 ├── tests/check.py        bit-exact comparison against results/reference/
