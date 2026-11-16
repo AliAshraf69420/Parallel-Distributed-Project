@@ -3109,8 +3109,8 @@
     }
   },
   "seconds": {
-    "pass1": 0.99,
-    "total": 1.86
+    "pass1": 0.88,
+    "total": 1.69
   },
   "tool_versions": {
     "python": "3.12.16",

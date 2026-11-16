@@ -1,7 +1,7 @@
 // Memory-hierarchy experiments for the Phase 1 report (Lab 2 / Lab 5 style), on our own data.
 //
-//   memexp wss            time per cache line vs working-set size (16 KiB .. 1 GiB of shard
-//                         bytes): shows the L1 / L2 / L3 / DRAM steps
+//   memexp wss            load latency vs working-set size (16 KiB .. 1 GiB), pointer chase:
+//                         shows the L1 / L2 / L3 / DRAM steps
 //   memexp stride         time per access vs stride (1 B .. 8 KiB) over 1 GiB of shard bytes
 //   memexp resize-order   the real crop+resize with the production row-major traversal vs a
 //                         column-major traversal; the outputs are verified identical, so the
@@ -16,8 +16,8 @@
 // Output: one CSV block per experiment on stdout.
 //
 // perf example (cache misses of each traversal):
-//   perf stat -e cache-references,cache-misses,L1-dcache-loads,L1-dcache-load-misses \
-//       build/memexp resize-order --variant col --set 500MB
+//   perf stat -e cache-references,cache-misses,L1-dcache-loads,L1-dcache-load-misses
+//       build/memexp resize-order --variant col --set 500MB   (one command line)
 #include <omp.h>
 
 #include <algorithm>
@@ -64,25 +64,34 @@ std::vector<uint8_t> shard_bytes(const Dataset& ds, size_t bytes) {
 }
 
 // ------------------------------------------------------------------ wss
+// Load-to-load latency vs working-set size: a pointer chase through a random cyclic
+// permutation of the 64-byte lines of the working set. Every load's address depends on the
+// previous load, so neither the compiler nor the hardware prefetcher can hide the latency;
+// the steps show where the working set stops fitting in L1, L2 and L3.
 void wss(const Args& a) {
-    Dataset ds(set_path("full"));
     const size_t max_bytes = size_t(1) << 30;
-    std::vector<uint8_t> buf = shard_bytes(ds, max_bytes);
-    std::printf("experiment,working_set_bytes,lines_touched,ns_per_line,checksum\n");
+    std::vector<uint64_t> buf(max_bytes / 8);
+    std::printf("experiment,working_set_bytes,hops,ns_per_load\n");
+    const size_t hops = size_t(1) << 24;
     for (size_t ws = 16 << 10; ws <= max_bytes; ws *= 2) {
-        // Touch one byte per 64-byte line, enough passes for >= 256 Mi line touches.
         const size_t lines = ws / 64;
-        const size_t passes = std::max<size_t>(1, (size_t(256) << 20) / lines);
+        std::vector<uint32_t> perm(lines);
+        for (size_t k = 0; k < lines; ++k) perm[k] = uint32_t(k);
+        uint64_t rng = 0x9E3779B97F4A7C15ull ^ ws;  // xorshift64, fixed seed per size
+        for (size_t k = lines - 1; k > 0; --k) {
+            rng ^= rng << 13, rng ^= rng >> 7, rng ^= rng << 17;
+            std::swap(perm[k], perm[rng % (k + 1)]);
+        }
+        for (size_t k = 0; k < lines; ++k) buf[size_t(perm[k]) * 8] = perm[(k + 1) % lines];
         double best = 1e30;
-        uint64_t sum = 0;
+        uint64_t idx = perm[0];
         for (int rep = 0; rep < a.reps; ++rep) {
             const auto t0 = Clock::now();
-            for (size_t p = 0; p < passes; ++p)
-                for (size_t off = 0; off < ws; off += 64) sum += buf[off];
+            for (size_t h = 0; h < hops; ++h) idx = buf[idx * 8];
             best = std::min(best, secs(t0));
         }
-        std::printf("wss,%zu,%zu,%.3f,%llu\n", ws, lines * passes, best * 1e9 / double(lines * passes),
-                    static_cast<unsigned long long>(sum));
+        if (idx >= lines) throw std::runtime_error("wss: chase left the working set");
+        std::printf("wss,%zu,%zu,%.3f\n", ws, hops, best * 1e9 / double(hops));
         std::fflush(stdout);
     }
 }
@@ -168,7 +177,7 @@ struct alignas(64) Padded { uint64_t s1[3]; };     // one cache line per thread
 template <class Slot>
 double accumulate_shared(const Dataset& ds, const std::vector<uint8_t>& resized, int threads,
                          uint64_t total[3]) {
-    std::vector<Slot> slots(size_t(threads));
+    std::vector<Slot> slots(static_cast<size_t>(threads));
     const long n = long(ds.size());
     const auto t0 = Clock::now();
 #pragma omp parallel num_threads(threads)

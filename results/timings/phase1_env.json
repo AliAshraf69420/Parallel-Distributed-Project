@@ -1,0 +1,26 @@
+{
+  "date": "2026-11-16 12:39:47",
+  "host": "BillyShears",
+  "cpu": "AMD Ryzen 7 5800H with Radeon Graphics",
+  "cores": "8",
+  "threads_per_core": "2",
+  "caches": [
+    "L1d cache: 256 KiB (8 instances)",
+    "L2 cache: 4 MiB (8 instances)",
+    "L3 cache: 16 MiB (1 instance)"
+  ],
+  "ram": "14Gi",
+  "governor": "powersave",
+  "kernel": "7.2.7-arch1-1",
+  "compiler": "g++ (GCC) 16.2.1 20260810",
+  "cxxflags": "-O3 -march=native -std=c++20 -ffp-contract=off",
+  "omp_env": {
+    "OMP_PROC_BIND": "close",
+    "OMP_PLACES": "cores"
+  },
+  "load_average_at_start": [
+    7.2900390625,
+    8.45703125,
+    5.0517578125
+  ]
+}

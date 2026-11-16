@@ -13,7 +13,7 @@ Hadoop Streaming. Every implementation must match one frozen reference **bit for
 |---|---|
 | Preprocessing (validate, predecode, subsets, reference) | Done |
 | Sequential baseline, OpenMP, C++ thread pipeline, correctness checker | Done |
-| Phase 1 benchmarks, plots, memory-hierarchy experiments | Done (perf counters need `perf`) |
+| Phase 1 benchmarks, plots, memory-hierarchy experiments | Done |
 | Phase 1 report and video | To do |
 | Phase 2: MPI | To do |
 | Phase 3: Hadoop Streaming | To do |
@@ -130,6 +130,7 @@ Close other programs first (the runner warns if the load average is high).
 ```bash
 python scripts/bench/phase1.py       # ~10 min: strong, schedule, weak, per-image times
 python plots/phase1.py               # -> plots/phase1/*.png, results/timings/phase1_summary.md
+make report                          # -> report.pdf (LaTeX source in report/, needs latexmk)
 ```
 
 Every configuration gets one warm-up run plus 3 measured runs (the median is reported), uses
@@ -140,13 +141,17 @@ Raw rows go to `results/timings/phase1_*.csv`, and machine details to `phase1_en
 ### 7. Memory-hierarchy experiments
 
 ```bash
-build/memexp wss                     # time per cache line vs working-set size (L1/L2/L3/DRAM)
+build/memexp wss                     # load latency vs working-set size, pointer chase (L1/L2/L3/DRAM)
 build/memexp stride                  # time per access vs stride
 build/memexp resize-order            # row-major vs column-major resize (identical output)
 build/memexp false-sharing -t 8      # packed vs padded vs local per-thread counters
 perf stat -e cache-references,cache-misses,L1-dcache-loads,L1-dcache-load-misses \
     build/memexp resize-order --variant col    # repeat with --variant row
 ```
+
+The report's numbers were produced with each command's output redirected to
+`results/timings/memexp/<name>.csv` (and `perf stat -x, -o results/timings/memexp/perf_<name>.csv`);
+`python plots/phase1.py` turns them into `plots/phase1/{latency,stride}.png` and tables.
 
 ---
 

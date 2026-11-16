@@ -1,0 +1,134 @@
+{
+  "700MB": {
+    "set": "700MB",
+    "format_version": 1,
+    "record_size": 32,
+    "align": 64,
+    "count": 1355,
+    "train": 693,
+    "test": 662,
+    "classes": 200,
+    "pixel_bytes": 734232606,
+    "shard_files": {
+      "shard_0000.bin": 734274760
+    },
+    "bytes_on_disk": 734318152,
+    "verified": true,
+    "tool_versions": {
+      "python": "3.12.16",
+      "numpy": "2.5.5",
+      "pillow": "11.3.0",
+      "libjpeg_turbo": "3.1.0"
+    },
+    "parent": "full",
+    "seed": 401,
+    "target_pixel_mib": 700,
+    "fraction_of_parent": 0.115,
+    "images_per_class": {
+      "min": 4,
+      "max": 8
+    },
+    "seconds": 0.92
+  },
+  "1400MB": {
+    "set": "1400MB",
+    "format_version": 1,
+    "record_size": 32,
+    "align": 64,
+    "count": 2725,
+    "train": 1388,
+    "test": 1337,
+    "classes": 200,
+    "pixel_bytes": 1468442406,
+    "shard_files": {
+      "shard_0000.bin": 1073490156,
+      "shard_0001.bin": 395037640
+    },
+    "bytes_on_disk": 1468615028,
+    "verified": true,
+    "tool_versions": {
+      "python": "3.12.16",
+      "numpy": "2.5.5",
+      "pillow": "11.3.0",
+      "libjpeg_turbo": "3.1.0"
+    },
+    "parent": "full",
+    "seed": 401,
+    "target_pixel_mib": 1400,
+    "fraction_of_parent": 0.2312,
+    "images_per_class": {
+      "min": 9,
+      "max": 14
+    },
+    "seconds": 2.12
+  },
+  "2800MB": {
+    "set": "2800MB",
+    "format_version": 1,
+    "record_size": 32,
+    "align": 64,
+    "count": 5465,
+    "train": 2775,
+    "test": 2690,
+    "classes": 200,
+    "pixel_bytes": 2936111790,
+    "shard_files": {
+      "shard_0000.bin": 1073342112,
+      "shard_0001.bin": 1073354348,
+      "shard_0002.bin": 789585324
+    },
+    "bytes_on_disk": 2936456696,
+    "verified": true,
+    "tool_versions": {
+      "python": "3.12.16",
+      "numpy": "2.5.5",
+      "pillow": "11.3.0",
+      "libjpeg_turbo": "3.1.0"
+    },
+    "parent": "full",
+    "seed": 401,
+    "target_pixel_mib": 2800,
+    "fraction_of_parent": 0.4636,
+    "images_per_class": {
+      "min": 18,
+      "max": 28
+    },
+    "seconds": 6.42
+  },
+  "5600MB": {
+    "set": "5600MB",
+    "format_version": 1,
+    "record_size": 32,
+    "align": 64,
+    "count": 10923,
+    "train": 5552,
+    "test": 5371,
+    "classes": 200,
+    "pixel_bytes": 5872329147,
+    "shard_files": {
+      "shard_0000.bin": 1073341940,
+      "shard_0001.bin": 1073591596,
+      "shard_0002.bin": 1073429888,
+      "shard_0003.bin": 1073259988,
+      "shard_0004.bin": 1073513836,
+      "shard_0005.bin": 505534412
+    },
+    "bytes_on_disk": 5873021228,
+    "verified": true,
+    "tool_versions": {
+      "python": "3.12.16",
+      "numpy": "2.5.5",
+      "pillow": "11.3.0",
+      "libjpeg_turbo": "3.1.0"
+    },
+    "parent": "full",
+    "seed": 401,
+    "target_pixel_mib": 5600,
+    "fraction_of_parent": 0.9267,
+    "images_per_class": {
+      "min": 37,
+      "max": 56
+    },
+    "seconds": 26.87
+  }
+}

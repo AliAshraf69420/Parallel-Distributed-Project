@@ -7,6 +7,8 @@ Writes to plots/phase1/:
   schedule.png     total time per OpenMP schedule (dot plot), per set x order, 4 and 8 threads
   weak.png         Gustafson: scaled speedup vs threads on the p x 700 MiB sets
   records.png      distribution of per-image pass-2 time (sequential, full set)
+  latency.png      load latency vs working-set size (memexp wss)
+  stride.png       time per access vs stride (memexp stride)
 and results/timings/phase1_summary.md (all tables for the report, medians of the runs).
 
 Usage: python plots/phase1.py
@@ -104,6 +106,16 @@ def strong(md: list[str]) -> None:
             md.append(f"| {tag} | {p1[('omp', s, p)]:.3f} | {p2[('omp', s, p)]:.3f} | {tc:.3f} | "
                       f"{sp:.2f} | {sp / p:.2f} | {'-' if p == 1 else f'{f:.4f}'} | "
                       f"{tot[('omp', s, p)]:.3f} | {ts_t / tot[('omp', s, p)]:.2f} |")
+    if any(r["version"] == "threads" for r in rows):
+        md.append("\n**OpenMP vs C++ threads pipeline** (compute time in s, and speedup vs T_S)\n")
+        md.append("| set | threads | omp (s) | omp S | threads (s) | threads S |")
+        md.append("|---|---|---|---|---|---|")
+        for s in sets:
+            ts_c = cmp_[("seq", s, 1)]
+            for p in threads:
+                if ("threads", s, p) in cmp_:
+                    o, t = cmp_[("omp", s, p)], cmp_[("threads", s, p)]
+                    md.append(f"| {s} | {p} | {o:.3f} | {ts_c / o:.2f} | {t:.3f} | {ts_c / t:.2f} |")
     md.append("")
 
     for kind in ("speedup", "efficiency"):
@@ -114,15 +126,23 @@ def strong(md: list[str]) -> None:
                         textcoords="offset points", ha="right", va="center", color=INK2, fontsize=9)
         else:
             ax.axhline(1.0, ls="--", lw=1.2, color=MUTED, zorder=1)
+        ends = []
         for color, s in zip(SERIES, sets):
             ts = cmp_[("seq", s, 1)]
             y = [ts / cmp_[("omp", s, p)] / (1 if kind == "speedup" else p) for p in threads]
             ax.plot(threads, y, marker="o", color=color, label=s, zorder=3,
                     markeredgecolor=SURFACE, markeredgewidth=2)
-            ax.annotate(f"{s}  {y[threads.index(8)] if 8 in threads else y[-1]:.2f}"
-                        f"{'x' if kind == 'speedup' else ''} @8",
-                        (8, y[threads.index(8)]) if 8 in threads else (threads[-1], y[-1]),
-                        xytext=(8, 0), textcoords="offset points", va="center", fontsize=9, color=INK2)
+            at8 = y[threads.index(8)] if 8 in threads else y[-1]
+            ends.append([y[-1], f"{s}: {at8:.2f}{'x' if kind == 'speedup' else ''} at 8"])
+        # Direct labels at the line ends, nudged apart so they never overlap.
+        lo, hi = ax.get_ylim()
+        gap = 0.07 * (hi - lo)
+        ends.sort()
+        for k in range(1, len(ends)):
+            ends[k][0] = max(ends[k][0], ends[k - 1][0] + gap)
+        for yy, text in ends:
+            ax.annotate(text, (threads[-1], yy), xytext=(10, 0), textcoords="offset points",
+                        va="center", fontsize=9, color=INK2, annotation_clip=False)
         ax.set_xscale("log", base=2)
         ax.set_xticks(threads, [f"{p}\n(SMT)" if p > 8 else str(p) for p in threads])
         ax.set_xlabel("OpenMP threads (1 per physical core up to 8)")
@@ -133,7 +153,7 @@ def strong(md: list[str]) -> None:
             ax.set_ylabel("efficiency  S / p")
             ax.set_ylim(0, 1.15)
             ax.set_title("Strong scaling: parallel efficiency")
-        ax.legend(loc="upper left")
+        ax.legend(loc="upper left" if kind == "speedup" else "lower left")
         save(fig, f"{kind}.png")
 
 
@@ -261,6 +281,107 @@ def records(md: list[str]) -> None:
     save(fig, "records.png")
 
 
+# ------------------------------------------------------------------ memory hierarchy
+def memory(md: list[str]) -> None:
+    d = TIMINGS / "memexp"
+    if not d.exists():
+        return
+    def rows(name):
+        f = d / name
+        return list(csv.DictReader(open(f, newline=""))) if f.exists() else []
+
+    def perf(name):
+        out = {}
+        f = d / name
+        if f.exists():
+            for line in f.read_text().splitlines():
+                parts = line.split(",")
+                if len(parts) > 2 and not line.startswith("#") and parts[0].replace(".", "").isdigit():
+                    out[parts[2].split(":")[0]] = float(parts[0])
+        return out
+
+    w = rows("wss.csv")
+    if w:
+        x = [int(r["working_set_bytes"]) for r in w]
+        y = [float(r["ns_per_load"]) for r in w]
+        fig, ax = plt.subplots(figsize=(6.4, 4.0))
+        for size, name in ((32 << 10, "L1d 32 KiB"), (512 << 10, "L2 512 KiB"), (16 << 20, "L3 16 MiB")):
+            ax.axvline(size, color=MUTED, lw=1, ls="--", zorder=1)
+            ax.annotate(name, (size, 0.98), xycoords=("data", "axes fraction"), xytext=(-4, 0),
+                        textcoords="offset points", rotation=90, ha="right", va="top",
+                        fontsize=8.5, color=INK2)
+        ax.plot(x, y, marker="o", color=SERIES[0], zorder=3, markeredgecolor=SURFACE, markeredgewidth=2)
+        ax.set_xscale("log", base=2)
+        ax.set_yscale("log")
+        ticks = [16 << 10, 256 << 10, 4 << 20, 64 << 20, 1 << 30]
+        ax.set_xticks(ticks, ["16 KiB", "256 KiB", "4 MiB", "64 MiB", "1 GiB"])
+        ax.set_yticks([1, 3, 10, 30, 100], ["1", "3", "10", "30", "100"])
+        ax.set_xlabel("working set (pointer chase over random 64-byte lines)")
+        ax.set_ylabel("load latency (ns, log scale)")
+        ax.set_title("Memory hierarchy: load latency vs working set")
+        save(fig, "latency.png")
+        md.append("## Memory hierarchy (build/memexp)\n")
+        md.append("**Load latency vs working set** (pointer chase):\n")
+        md.append("| working set | ns per load |")
+        md.append("|---|---|")
+        for xx, yy in zip(x, y):
+            label = f"{xx >> 20} MiB" if xx >= 1 << 20 else f"{xx >> 10} KiB"
+            md.append(f"| {label} | {yy:.1f} |")
+        md.append("")
+
+    st = rows("stride.csv")
+    if st:
+        x = [int(r["stride_bytes"]) for r in st]
+        y = [float(r["ns_per_access"]) for r in st]
+        fig, ax = plt.subplots(figsize=(6.4, 4.0))
+        for size, name in ((64, "cache line 64 B"), (4096, "page 4 KiB")):
+            ax.axvline(size, color=MUTED, lw=1, ls="--", zorder=1)
+            ax.annotate(name, (size, 0.98), xycoords=("data", "axes fraction"), xytext=(-4, 0),
+                        textcoords="offset points", rotation=90, ha="right", va="top",
+                        fontsize=8.5, color=INK2)
+        ax.plot(x, y, marker="o", color=SERIES[0], zorder=3, markeredgecolor=SURFACE, markeredgewidth=2)
+        ax.set_xscale("log", base=2)
+        ax.set_xticks(x[::2], [str(v) for v in x[::2]])
+        ax.set_xlabel("stride (bytes) over 1 GiB of predecoded shard data")
+        ax.set_ylabel("time per access (ns)")
+        ax.set_title("Stride: cost per access grows until every access is a new line")
+        save(fig, "stride.png")
+        md.append("**Stride sweep** over 1 GiB of shard bytes:\n")
+        md.append("| stride (B) | ns per access |")
+        md.append("|---|---|")
+        md += [f"| {xx} | {yy:.2f} |" for xx, yy in zip(x, y)]
+        md.append("")
+
+    ro = rows("resize_order.csv")
+    pr, pc = perf("perf_resize_row.csv"), perf("perf_resize_col.csv")
+    if ro:
+        t = {r["variant"]: float(r["us_per_image"]) for r in ro}
+        md.append("**Resize traversal order** (500MB set, single thread, bit-identical output):\n")
+        md.append("| variant | us per image | cycles | instructions | cache refs | cache misses | L1d loads | L1d misses |")
+        md.append("|---|---|---|---|---|---|---|---|")
+        for v, pp in (("row", pr), ("col", pc)):
+            md.append(f"| {v}-major | {t.get(v, float('nan')):.1f} | " + " | ".join(
+                f"{pp.get(k, float('nan')) / 1e6:.1f} M" for k in
+                ("cycles", "instructions", "cache-references", "cache-misses", "L1-dcache-loads",
+                 "L1-dcache-load-misses")) + " |")
+        md.append("\n(perf counts cover the whole process, including loading the set.)\n")
+
+    fs = rows("false_sharing.csv")
+    if fs:
+        t = {r["variant"]: float(r["seconds"]) for r in fs}
+        md.append("**False sharing** (8 threads, per-pixel counter updates, 500MB set):\n")
+        md.append("| variant | seconds | slowdown vs local | cycles | cache misses | L1d misses |")
+        md.append("|---|---|---|---|---|---|")
+        for v in ("packed", "padded", "local"):
+            pp = perf(f"perf_fs_{v}.csv")
+            md.append(f"| {v} | {t[v]:.4f} | {t[v] / t['local']:.1f}x | "
+                      f"{pp.get('cycles', float('nan')) / 1e6:.0f} M | "
+                      f"{pp.get('cache-misses', float('nan')) / 1e6:.1f} M | "
+                      f"{pp.get('L1-dcache-load-misses', float('nan')) / 1e6:.1f} M |")
+        md.append("\n(perf counts include the untimed setup that resizes every image once; the "
+                  "differences between rows come from the accumulation loop.)\n")
+
+
 def main() -> int:
     if not TIMINGS.exists():
         print("no results/timings/: run scripts/bench/phase1.py first", file=sys.stderr)
@@ -271,6 +392,7 @@ def main() -> int:
     schedule(md)
     weak(md)
     records(md)
+    memory(md)
     (TIMINGS / "phase1_summary.md").write_text("\n".join(md) + "\n")
     print("  results/timings/phase1_summary.md")
     return 0

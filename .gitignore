@@ -10,3 +10,12 @@ __pycache__/
 # Build output and per-run verification outputs (regenerable)
 build/
 results/runs/
+
+# LaTeX build files (the PDF is copied to report.pdf by `make report`)
+report/*.aux
+report/*.log
+report/*.out
+report/*.fls
+report/*.fdb_latexmk
+report/*.synctex.gz
+report/main.pdf

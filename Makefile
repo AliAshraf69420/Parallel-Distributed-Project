@@ -18,7 +18,7 @@ COMMON_SRC := $(wildcard src/common/*.cpp)
 COMMON_OBJ := $(COMMON_SRC:src/%.cpp=$(BUILD)/obj/%.o)
 BINARIES   := $(BUILD)/seq $(BUILD)/omp $(BUILD)/threads $(BUILD)/memexp
 
-.PHONY: all data test check clean
+.PHONY: all data test check report clean
 all: $(BINARIES)
 
 $(BUILD)/obj/%.o: src/%.cpp
@@ -70,5 +70,11 @@ test: $(BINARIES)
 	$(BUILD)/threads --set 100MB
 	$(PYTHON) tests/check.py --set 100MB --run results/runs/threads/100MB
 
+# ---- report (LaTeX, needs latexmk) -> report.pdf at the repo root, as the brief requires --------
+report:
+	cd report && latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+	cp report/main.pdf report.pdf
+
 clean:
 	rm -rf $(BUILD)
+	cd report && latexmk -C main.tex
