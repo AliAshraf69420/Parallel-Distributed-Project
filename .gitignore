@@ -19,3 +19,6 @@ report/*.fls
 report/*.fdb_latexmk
 report/*.synctex.gz
 report/main.pdf
+report/phase2.pdf
+
+build-cluster/

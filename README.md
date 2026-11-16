@@ -14,8 +14,9 @@ Hadoop Streaming. Every implementation must match one frozen reference **bit for
 | Preprocessing (validate, predecode, subsets, reference) | Done |
 | Sequential baseline, OpenMP, C++ thread pipeline, correctness checker | Done |
 | Phase 1 benchmarks, plots, memory-hierarchy experiments | Done |
-| Phase 1 report and video | To do |
-| Phase 2: MPI | To do |
+| Phase 1 report (`report.pdf`) | Done |
+| Phase 2: MPI, Docker cluster, benchmarks, report (`report_phase2.pdf`) | Done |
+| Phase 1 and Phase 2 videos | To do |
 | Phase 3: Hadoop Streaming | To do |
 
 ---
@@ -32,7 +33,7 @@ Run every command **from the repository root**.
 | conda (Miniconda or Anaconda) | Python preprocessing | <https://docs.conda.io/en/latest/miniconda.html> |
 | perf | Phase 1 cache experiment | `pacman -S perf` / `apt install linux-tools-$(uname -r)` |
 | OpenMPI | Phase 2 | `pacman -S openmpi` / `apt install openmpi-bin libopenmpi-dev` |
-| Docker | Phase 3 (Hadoop cluster) | distro package |
+| Docker (with the compose plugin) | Phase 2 cluster, Phase 3 (Hadoop cluster) | distro package |
 
 Disk: about **28 GB** free (1.1 GB download, 1.2 GB extracted, 5.9 GB predecoded full set,
 0.6 GB subsets, 10.5 GB weak-scaling subsets, plus outputs). RAM: 8 GB or more.
@@ -86,13 +87,14 @@ Each step reads the previous step's output. Or run all of them with `make data`.
 ### 4. Build the C++ implementations
 
 ```bash
-make            # -> build/{seq,omp,threads,memexp}   (flags: -O3 -march=native -ffp-contract=off)
+make            # -> build/{seq,omp,threads,memexp}, plus build/{mpi,pingpong} if mpicxx is installed
+                # (flags: -O3 -march=native -ffp-contract=off)
 ```
 
 ### 5. Run and verify
 
 ```bash
-make test       # runs seq, omp and threads on the 100MB set and checks each against the reference
+make test       # runs seq, omp, threads (and mpi with 4 ranks) on the 100MB set, checking each
 ```
 
 Each run of `build/<version>` writes `stats.json` and `checksums.csv` to
@@ -130,7 +132,7 @@ Close other programs first (the runner warns if the load average is high).
 ```bash
 python scripts/bench/phase1.py       # ~10 min: strong, schedule, weak, per-image times
 python plots/phase1.py               # -> plots/phase1/*.png, results/timings/phase1_summary.md
-make report                          # -> report.pdf (LaTeX source in report/, needs latexmk)
+make report                          # -> report.pdf, report_phase2.pdf (LaTeX in report/, needs latexmk)
 ```
 
 Every configuration gets one warm-up run plus 3 measured runs (the median is reported), uses
@@ -153,6 +155,49 @@ The report's numbers were produced with each command's output redirected to
 `results/timings/memexp/<name>.csv` (and `perf stat -x, -o results/timings/memexp/perf_<name>.csv`);
 `python plots/phase1.py` turns them into `plots/phase1/{latency,stride}.png` and tables.
 
+### 8. Phase 2: MPI
+
+On one machine (shared-memory transport):
+
+```bash
+mpirun -n 8 --bind-to core build/mpi --set full --preload
+python tests/check.py --set full --run results/runs/mpi/full
+mpirun -n 2 --map-by slot:PE=4 --bind-to core build/mpi --set full --preload -t 4   # hybrid: 2 ranks x 4 threads
+mpirun -n 2 --bind-to core build/pingpong > pingpong.csv                              # latency vs bandwidth
+```
+
+MPI-only options of `build/mpi`:
+
+| Option | Meaning |
+|---|---|
+| `--partition work\|count\|pixels` | what rank 0 balances when it cuts the records into blocks (default `work`) |
+| `--collect send\|isend` | overlap experiment: ranks 1..P-1 ship every tensor to rank 0, blocking or overlapped with compute |
+| `-t N` | OpenMP threads inside each rank (hybrid) |
+
+Each run also writes `ranks.csv` (per-rank records, bytes and times) next to `stats.json`.
+
+On the 4-node Docker cluster (4 containers x 2 physical cores, TCP between nodes):
+
+```bash
+scripts/mpi/cluster.sh up                                    # build image, start nodes, compile into build-cluster/
+scripts/mpi/cluster.sh spread -n 8 build-cluster/mpi --set full --preload --out results/runs/cluster/full
+python tests/check.py --set full --run results/runs/cluster/full
+scripts/mpi/cluster.sh spread -n 2 build-cluster/pingpong    # across two nodes
+scripts/mpi/cluster.sh down
+```
+
+`run` fills node1 first, then node2, and so on; `spread` places ranks round-robin over the
+nodes. The hostfile is `scripts/mpi/hostfile`. The `cpuset` values in
+`scripts/mpi/docker-compose.yml` pin each node to two physical cores of a Ryzen 7 5800H;
+change them for a different CPU.
+
+All Phase 2 measurements and plots (about 15 minutes, cluster must be up):
+
+```bash
+python scripts/bench/phase2.py       # -> results/timings/phase2/   (--no-cluster for host only)
+python plots/phase2.py               # -> plots/phase2/*.png, results/timings/phase2/summary.md
+```
+
 ---
 
 ## Repository layout
@@ -166,7 +211,9 @@ The report's numbers were produced with each command's output redirected to
 ├── src/seq/, src/omp/    one main.cpp each: only the loops differ
 ├── src/threads/          std::thread pipeline: reader -> workers -> writer, bounded queues
 ├── src/memexp/           memory-hierarchy and false-sharing experiments
-├── scripts/bench/        benchmark runners (phase1.py)
+├── src/mpi/              MPI version (main.cpp) and ping-pong benchmark
+├── scripts/mpi/          Docker cluster: Dockerfile, compose file, hostfile, cluster.sh
+├── scripts/bench/        benchmark runners (phase1.py, phase2.py)
 ├── plots/                plot + table scripts and their PNG output
 ├── tests/check.py        bit-exact comparison against results/reference/
 ├── data/                 raw/ and processed/ are gitignored; README has download steps

@@ -12,11 +12,16 @@ CXXFLAGS ?= -O3 -march=native
 # -ffp-contract=off is required: the reference spec forbids fused multiply-add (bit-exactness).
 override CXXFLAGS += -std=c++20 -Wall -Wextra -ffp-contract=off -MMD -MP
 OMPFLAGS := -fopenmp
+MPICXX   ?= mpicxx
 
 BUILD      := build
 COMMON_SRC := $(wildcard src/common/*.cpp)
 COMMON_OBJ := $(COMMON_SRC:src/%.cpp=$(BUILD)/obj/%.o)
 BINARIES   := $(BUILD)/seq $(BUILD)/omp $(BUILD)/threads $(BUILD)/memexp
+# Phase 2 binaries are built only where an MPI compiler is installed.
+ifneq ($(shell command -v $(MPICXX) 2>/dev/null),)
+BINARIES   += $(BUILD)/mpi $(BUILD)/pingpong
+endif
 
 .PHONY: all data test check report clean
 all: $(BINARIES)
@@ -32,6 +37,16 @@ $(BUILD)/obj/omp/%.o: src/omp/%.cpp
 $(BUILD)/obj/memexp/%.o: src/memexp/%.cpp
 	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) $(OMPFLAGS) -c $< -o $@
+
+$(BUILD)/obj/mpi/%.o: src/mpi/%.cpp
+	@mkdir -p $(@D)
+	$(MPICXX) $(CXXFLAGS) $(OMPFLAGS) -c $< -o $@
+
+$(BUILD)/mpi: $(BUILD)/obj/mpi/main.o $(COMMON_OBJ)
+	$(MPICXX) $(CXXFLAGS) $(OMPFLAGS) $^ -o $@
+
+$(BUILD)/pingpong: $(BUILD)/obj/mpi/pingpong.o
+	$(MPICXX) $(CXXFLAGS) $^ -o $@
 
 $(BUILD)/seq: $(BUILD)/obj/seq/main.o $(COMMON_OBJ)
 	$(CXX) $(CXXFLAGS) $^ -o $@
@@ -69,12 +84,17 @@ test: $(BINARIES)
 	$(PYTHON) tests/check.py --set 100MB --run results/runs/omp/100MB
 	$(BUILD)/threads --set 100MB
 	$(PYTHON) tests/check.py --set 100MB --run results/runs/threads/100MB
+ifneq ($(shell command -v $(MPICXX) 2>/dev/null),)
+	mpirun -n 4 $(BUILD)/mpi --set 100MB
+	$(PYTHON) tests/check.py --set 100MB --run results/runs/mpi/100MB
+endif
 
-# ---- report (LaTeX, needs latexmk) -> report.pdf at the repo root, as the brief requires --------
+# ---- reports (LaTeX, needs latexmk) -> report.pdf (Phase 1) and report_phase2.pdf at the root ----
 report:
-	cd report && latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+	cd report && latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex phase2.tex
 	cp report/main.pdf report.pdf
+	cp report/phase2.pdf report_phase2.pdf
 
 clean:
 	rm -rf $(BUILD)
-	cd report && latexmk -C main.tex
+	cd report && latexmk -C main.tex phase2.tex

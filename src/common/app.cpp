@@ -30,6 +30,9 @@ namespace {
         "  --order O        processing order: id (default) | area-desc | area-asc\n"
         "  --run K          run number recorded in the CSV (default 0)\n"
         "  --record-times F seq only: write per-image pass-2 time (us) and crop size to F\n"
+        "  --partition P    mpi only: split records across ranks by work (default) | count | pixels\n"
+        "  --collect C      mpi only: workers ship every tensor to rank 0: none (default) |\n"
+        "                   send (blocking MPI_Send) | isend (MPI_Isend overlapped with compute)\n"
         "  --cache          resize every image once in pass 1 and keep it for pass 2\n"
         "  --preload        read all shards into the page cache before timing starts\n"
         "  -q, --quiet      no summary line\n",
@@ -83,6 +86,8 @@ Options parse_args(int argc, char** argv, const std::string& version) {
         else if (a == "--run") o.run = std::atoi(value().c_str());
         else if (a == "--order") o.order = value();
         else if (a == "--record-times") o.record_times = value();
+        else if (a == "--partition") o.partition = value();
+        else if (a == "--collect") o.collect = value();
         else if (a == "--cache") o.cache = true;
         else if (a == "--preload") o.preload = true;
         else if (a == "-q" || a == "--quiet") o.quiet = true;
@@ -112,10 +117,10 @@ Options parse_args(int argc, char** argv, const std::string& version) {
 }
 
 // ---------------------------------------------------------------- TensorWriter
-TensorWriter::TensorWriter(const std::string& path, size_t count) {
-    fd_ = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (fd_ < 0) throw std::runtime_error("cannot create " + path + ": " + std::strerror(errno));
-    if (::ftruncate(fd_, off_t(count * kNormalizedBytes)) != 0)
+TensorWriter::TensorWriter(const std::string& path, size_t count, bool create) {
+    fd_ = ::open(path.c_str(), create ? (O_WRONLY | O_CREAT | O_TRUNC) : O_WRONLY, 0644);
+    if (fd_ < 0) throw std::runtime_error("cannot open " + path + ": " + std::strerror(errno));
+    if (create && ::ftruncate(fd_, off_t(count * kNormalizedBytes)) != 0)
         throw std::runtime_error("ftruncate " + path + ": " + std::strerror(errno));
 }
 
@@ -161,20 +166,21 @@ std::vector<size_t> pass1_indices(const Dataset& ds, const std::vector<size_t>& 
 }
 
 // ---------------------------------------------------------------- outputs
-void finish_run(const Options& opt, const Dataset& ds, RunOutput& out, int workers, int threads,
+void finish_run(const Options& opt, const std::string& set_name,
+                const std::vector<Record>& records, RunOutput& out, int workers, int threads,
                 const std::string& schedule, Stopwatch& sw) {
     fs::create_directories(opt.out_dir);
     const Normalization& nz = out.norm;
     size_t train = 0;
-    for (const auto& r : ds.records()) train += r.is_train;
+    for (const auto& r : records) train += r.is_train;
 
     {   // stats.json
         const auto path = fs::path(opt.out_dir) / "stats.json";
         std::FILE* f = std::fopen(path.c_str(), "w");
         if (!f) throw std::runtime_error("cannot write " + path.string());
-        std::fprintf(f, "{\n  \"set\": \"%s\",\n  \"version\": \"%s\",\n", ds.name().c_str(),
+        std::fprintf(f, "{\n  \"set\": \"%s\",\n  \"version\": \"%s\",\n", set_name.c_str(),
                      opt.version.c_str());
-        std::fprintf(f, "  \"records\": %zu,\n  \"train_records\": %zu,\n", ds.size(), train);
+        std::fprintf(f, "  \"records\": %zu,\n  \"train_records\": %zu,\n", records.size(), train);
         std::fprintf(f, "  \"n\": %llu,\n", static_cast<unsigned long long>(out.stats.n));
         std::fprintf(f, "  \"S1\": %s,\n  \"S2\": %s,\n", json_u64(out.stats.s1, 3).c_str(),
                      json_u64(out.stats.s2, 3).c_str());
@@ -198,8 +204,8 @@ void finish_run(const Options& opt, const Dataset& ds, RunOutput& out, int worke
         std::FILE* f = std::fopen(path.c_str(), "w");
         if (!f) throw std::runtime_error("cannot write " + path.string());
         std::fputs("image_id,crc_resized,crc_normalized\n", f);
-        for (size_t i = 0; i < ds.size(); ++i)
-            std::fprintf(f, "%u,%08x,%08x\n", ds[i].image_id, out.crc_resized[i],
+        for (size_t i = 0; i < records.size(); ++i)
+            std::fprintf(f, "%u,%08x,%08x\n", records[i].image_id, out.crc_resized[i],
                          out.crc_normalized[i]);
         std::fclose(f);
     }
@@ -217,7 +223,7 @@ void finish_run(const Options& opt, const Dataset& ds, RunOutput& out, int worke
         char host[256] = "unknown";
         ::gethostname(host, sizeof host - 1);
         std::fprintf(f, "%d,%s,%s,%d,%d,%s,%s,%d,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%s\n",
-                     phase_of(opt.version), opt.version.c_str(), ds.name().c_str(), workers,
+                     phase_of(opt.version), opt.version.c_str(), set_name.c_str(), workers,
                      threads, schedule.c_str(), opt.order.c_str(), int(opt.cache),
                      int(opt.preload), opt.run,
                      out.t.load, out.t.pass1, out.t.merge, out.t.pass2, out.t.write, out.t.total,
@@ -228,7 +234,7 @@ void finish_run(const Options& opt, const Dataset& ds, RunOutput& out, int worke
         std::printf("%s %s: %zu images (%zu train) | workers=%d threads=%d schedule=%s order=%s%s | "
                     "load %.3f  pass1 %.3f  merge %.6f  pass2 %.3f  write %.3f  total %.3f s"
                     " | mean %.6f %.6f %.6f -> %s\n",
-                    opt.version.c_str(), ds.name().c_str(), ds.size(), train, workers, threads,
+                    opt.version.c_str(), set_name.c_str(), records.size(), train, workers, threads,
                     schedule.c_str(), opt.order.c_str(), opt.cache ? " cache" : "", out.t.load, out.t.pass1,
                     out.t.merge, out.t.pass2, out.t.write, out.t.total, nz.mean[0], nz.mean[1],
                     nz.mean[2], opt.out_dir.c_str());

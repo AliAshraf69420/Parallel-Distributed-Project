@@ -1,0 +1,40 @@
+% Shared by every phase report: packages, title block, team, repository link.
+\usepackage{booktabs}
+\usepackage{microtype}
+\hypersetup{colorlinks=true, linkcolor=black, citecolor=black, urlcolor=blue!60!black}
+\lstset{language=C++, numbers=none, basicstyle=\ttfamily\footnotesize}
+\setlist{itemsep=2pt, topsep=4pt}
+
+% Title block: name / ID / date in a wrapping column beside the logo, so long name or ID
+% lists continue on the next line instead of running under the logo.
+\makeatletter
+\renewcommand{\maketitle}{%
+  \noindent
+  \begin{minipage}[t]{0.76\linewidth}
+    \vspace{0pt}
+    \begin{tabular}[t]{@{}l p{0.82\linewidth}@{}}
+      \ifx\@name\empty\else Name: & \raggedright \@name \tabularnewline \fi
+      \ifx\@id\empty\else ID: & \raggedright \@id \tabularnewline \fi
+      Date: & \today
+    \end{tabular}
+  \end{minipage}\hfill
+  \begin{minipage}[t]{0.2\linewidth}
+    \vspace{0pt}\raggedleft
+    \includegraphics[height=2cm]{logo.jpg}
+  \end{minipage}
+
+  \begin{center}
+    \textbf{\large \@course}\\
+    \@assignment
+  \end{center}
+
+  \noindent\rule{\linewidth}{0.1mm}
+  \medskip
+}
+\makeatother
+
+\newcommand{\repo}{\url{https://github.com/AliAshraf69420/Parallel-Distributed-Project}}
+
+\name{Ali Ashraf Hassan Abdelghany, Ahmad Muhammadi, Omar Ali, Abdullah Ayman}
+\id{202301812, 202301826, 202300942, 202301731}
+\course{SW 401}

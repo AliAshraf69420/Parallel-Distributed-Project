@@ -23,6 +23,8 @@ struct Options {
     std::string schedule;      // OpenMP schedule, e.g. "dynamic,8" ("" = OMP_SCHEDULE)
     std::string order = "id";  // record processing order: id | area-desc | area-asc
     std::string record_times;  // seq only: per-record pass-2 time CSV ("" = don't)
+    std::string partition = "work";  // mpi: how rank 0 splits the records: work | count | pixels
+    std::string collect = "none";    // mpi: ship tensors to rank 0: none | send | isend
     int threads = 0;           // 0 = implementation default
     int run = 0;               // run number, for the CSV
     bool cache = false;        // keep resized images between passes
@@ -57,7 +59,9 @@ private:
 // written with pwrite, so threads/ranks can write disjoint blocks without locks.
 class TensorWriter {
 public:
-    TensorWriter(const std::string& path, size_t count);
+    // create = true: create/truncate and size the file. create = false: open a file that
+    // another process (rank 0) already created, to write this process's own blocks.
+    TensorWriter(const std::string& path, size_t count, bool create = true);
     ~TensorWriter();
     void put(size_t i, const float* tensor) const;
 
@@ -109,7 +113,13 @@ inline void pass2_record(const Dataset& ds, size_t i, const Normalization& nz,
 // Writes <out_dir>/stats.json and <out_dir>/checksums.csv (same format as
 // results/reference/<set>/), appends a timing row to opt.csv, prints a summary.
 // `workers` = processes/ranks, `threads` = threads per worker.
-void finish_run(const Options& opt, const Dataset& ds, RunOutput& out, int workers,
-                int threads, const std::string& schedule, Stopwatch& sw);
+// `records` are all records of the set, in storage order (out.crc_* are indexed the same way).
+void finish_run(const Options& opt, const std::string& set_name,
+                const std::vector<Record>& records, RunOutput& out, int workers, int threads,
+                const std::string& schedule, Stopwatch& sw);
+inline void finish_run(const Options& opt, const Dataset& ds, RunOutput& out, int workers,
+                       int threads, const std::string& schedule, Stopwatch& sw) {
+    finish_run(opt, ds.name(), ds.records(), out, workers, threads, schedule, sw);
+}
 
 }  // namespace cub

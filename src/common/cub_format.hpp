@@ -42,8 +42,15 @@ static_assert(offsetof(Record, image_id) == 8 && offsetof(Record, w) == 16 &&
 // A set on disk: the index in memory, the shards memory-mapped read-only.
 class Dataset {
 public:
+    // Whole set: reads index.bin and maps every shard.
     explicit Dataset(const std::filesystem::path& dir);
+    // Part of a set (distributed memory): the caller supplies the records (for example
+    // received from another rank); only the shards those records use are mapped.
+    Dataset(const std::filesystem::path& dir, std::vector<Record> records);
     ~Dataset();
+
+    // Just the records of index.bin, without mapping any pixel data.
+    static std::vector<Record> read_index(const std::filesystem::path& dir);
     Dataset(const Dataset&) = delete;
     Dataset& operator=(const Dataset&) = delete;
 
@@ -55,7 +62,8 @@ public:
     std::string name() const { return dir_.filename().string(); }
     uint64_t pixel_bytes() const;
 
-    // Touch every shard page so later timings measure compute, not disk reads.
+    // Touch every page of this object's records so later timings measure compute, not
+    // disk reads.
     void preload() const;
 
 private:
@@ -63,9 +71,11 @@ private:
         void* addr = nullptr;
         size_t len = 0;
     };
+    void map_shards();  // maps the shards referenced by records_, validates the records
+
     std::filesystem::path dir_;
     std::vector<Record> records_;
-    std::vector<Mapping> shards_;
+    std::vector<Mapping> shards_;  // indexed by shard number; unused shards stay unmapped
 };
 
 }  // namespace cub

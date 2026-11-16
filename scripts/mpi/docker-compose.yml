@@ -1,0 +1,29 @@
+# 4-node MPI test cluster on one machine. Each node is pinned to 2 distinct physical cores
+# (logical CPUs 2k are one hardware thread of core k on this Ryzen 7 5800H; adjust `cpuset`
+# for another CPU). Nodes talk over the Docker bridge network `mpinet` (TCP); ranks inside
+# one node use shared memory. The repository is mounted at /work in every node.
+#
+#   scripts/mpi/cluster.sh up        build the image, start the nodes, build the binaries
+#   scripts/mpi/cluster.sh run -n 8 build-cluster/mpi --set full --preload
+#   scripts/mpi/cluster.sh down
+x-node: &node
+  image: sw401-mpi
+  build:
+    context: .
+    args:
+      UID: ${HOST_UID:-1000}
+  volumes:
+    - ../..:/work
+  networks: [mpinet]
+  shm_size: 1g
+  init: true
+
+services:
+  node1: { <<: *node, hostname: node1, cpuset: "0,2" }
+  node2: { <<: *node, hostname: node2, cpuset: "4,6" }
+  node3: { <<: *node, hostname: node3, cpuset: "8,10" }
+  node4: { <<: *node, hostname: node4, cpuset: "12,14" }
+
+networks:
+  mpinet:
+    driver: bridge

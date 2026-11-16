@@ -1,0 +1,13 @@
+phase,version,dataset,workers,threads_per_worker,schedule,order,cache,preload,run,t_load,t_pass1,t_merge,t_pass2,t_write,t_total,host
+2,mpi,full,1,8,part-work,id,0,1,0,0.228280,0.279064,0.000030,1.093332,0.003302,1.604009,BillyShears
+2,mpi,full,1,8,part-work,id,0,1,1,0.229410,0.277750,0.000032,1.067990,0.010487,1.585670,BillyShears
+2,mpi,full,1,8,part-work,id,0,1,2,0.230976,0.278324,0.000034,1.055204,0.003219,1.567757,BillyShears
+2,mpi,full,2,4,part-work,id,0,1,0,0.117492,0.278779,0.000014,1.054806,0.003194,1.454285,BillyShears
+2,mpi,full,2,4,part-work,id,0,1,1,0.118230,0.278825,0.000025,1.104603,0.010562,1.512245,BillyShears
+2,mpi,full,2,4,part-work,id,0,1,2,0.118409,0.279082,0.000024,1.054112,0.010409,1.462036,BillyShears
+2,mpi,full,4,2,part-work,id,0,1,0,0.064581,0.289032,0.000022,1.067252,0.003175,1.424062,BillyShears
+2,mpi,full,4,2,part-work,id,0,1,1,0.064720,0.282496,0.000019,1.061803,0.001802,1.410839,BillyShears
+2,mpi,full,4,2,part-work,id,0,1,2,0.063171,0.282595,0.000024,1.103658,0.012036,1.461484,BillyShears
+2,mpi,full,8,1,part-work,id,0,1,0,0.037378,0.291448,0.000026,1.061474,0.012274,1.402601,BillyShears
+2,mpi,full,8,1,part-work,id,0,1,1,0.036609,0.290876,0.000027,1.058640,0.002059,1.388212,BillyShears
+2,mpi,full,8,1,part-work,id,0,1,2,0.036319,0.291325,0.000019,1.061119,0.012217,1.401000,BillyShears

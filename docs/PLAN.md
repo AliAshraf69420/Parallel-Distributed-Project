@@ -383,7 +383,8 @@ total communication time.
 ### 7.4 Scaling study
 
 - **Strong scaling:** full dataset, p ∈ {1, 2, 4, 8}.
-- **Weak scaling:** aug ×p with p processes.
+- **Weak scaling:** p ranks on the nested p × 700 MiB subsets (same sets as Phase 1; no
+  augmentation needed).
 - Plotted on the same axes as the OpenMP results from Phase 1, using the shared CSV schema.
 
 ### 7.5 Bonuses
