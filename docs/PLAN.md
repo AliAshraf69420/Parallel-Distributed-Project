@@ -233,7 +233,7 @@ One checker, `tests/check.py`, compares any version's output against `results/re
   table work unchanged:
 
 ```
-phase,version,dataset,workers,threads_per_worker,schedule,run,t_load,t_pass1,t_merge,t_pass2,t_write,t_total,host
+phase,version,dataset,workers,threads_per_worker,schedule,cache,preload,run,t_load,t_pass1,t_merge,t_pass2,t_write,t_total,host
 ```
 
 - `scripts/bench/run_all.sh <version>` produces the CSV, and `plots/make_plots.py`

@@ -6,3 +6,7 @@ data/processed/
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Build output and per-run verification outputs (regenerable)
+build/
+results/runs/
