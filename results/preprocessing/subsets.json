@@ -1,0 +1,64 @@
+{
+  "100MB": {
+    "set": "100MB",
+    "format_version": 1,
+    "record_size": 32,
+    "align": 64,
+    "count": 195,
+    "train": 100,
+    "test": 95,
+    "classes": 147,
+    "pixel_bytes": 105239931,
+    "shard_files": {
+      "shard_0000.bin": 105245768
+    },
+    "bytes_on_disk": 105252040,
+    "verified": true,
+    "tool_versions": {
+      "python": "3.12.16",
+      "numpy": "2.5.5",
+      "pillow": "11.3.0",
+      "libjpeg_turbo": "3.1.0"
+    },
+    "parent": "full",
+    "seed": 401,
+    "target_pixel_mib": 100,
+    "fraction_of_parent": 0.0165,
+    "images_per_class": {
+      "min": 1,
+      "max": 2
+    },
+    "seconds": 0.18
+  },
+  "500MB": {
+    "set": "500MB",
+    "format_version": 1,
+    "record_size": 32,
+    "align": 64,
+    "count": 971,
+    "train": 498,
+    "test": 473,
+    "classes": 200,
+    "pixel_bytes": 524852928,
+    "shard_files": {
+      "shard_0000.bin": 524882568
+    },
+    "bytes_on_disk": 524913672,
+    "verified": true,
+    "tool_versions": {
+      "python": "3.12.16",
+      "numpy": "2.5.5",
+      "pillow": "11.3.0",
+      "libjpeg_turbo": "3.1.0"
+    },
+    "parent": "full",
+    "seed": 401,
+    "target_pixel_mib": 500,
+    "fraction_of_parent": 0.0824,
+    "images_per_class": {
+      "min": 3,
+      "max": 6
+    },
+    "seconds": 1.13
+  }
+}

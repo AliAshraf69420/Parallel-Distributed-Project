@@ -123,8 +123,8 @@ creates its own copy of the data.
 | `subsets/{100MB,500MB}/`             | same format, class-stratified, seeded                                                                           | 1, 2, 3                                          |
 | `aug_x{2,4,8}/`                      | same format, deterministic augmentation                                                                         | 1 (Gustafson), 2 (weak scaling), 3 (failure run) |
 | `text/{100MB,500MB,full,aug_x4}.txt` | one line per image (see §8.1)                                                                                   | 3                                                |
-| `reference/stats.json`               | μ, σ per channel (+ per-class, optional) from NumPy                                                             | all (correctness)                                |
-| `reference/checksums.txt`            | per-image checksum of the normalized output                                                                     | all (correctness)                                |
+| `results/reference/<set>/stats.json` | exact integer sums (n, S1, S2), μ, σ, the float32 LUT, per-class train stats; spec in `preprocessing/reference.py` | all (correctness) |
+| `results/reference/<set>/checksums.csv` | per-image CRC-32 of the resized uint8 and of the normalized float32 output | all (correctness) |
 
 We keep the original size (not pre-resized) on purpose:
 
@@ -183,26 +183,31 @@ Writing this once keeps all versions computing exactly the same thing:
 | Module      | Contents                                                                                                |
 | ----------- | ------------------------------------------------------------------------------------------------------- |
 | `record_io` | read the index, mmap shards, read a byte range (MPI), parse a text line + base64 (Hadoop)               |
-| `resize`    | bbox crop + bilinear resize with half-pixel centers (matching OpenCV `INTER_LINEAR` / Pillow)           |
-| `stats`     | `Stats {n, mean[3], M2[3]}`, `accumulate(img)`, `merge(a, b)` (Chan's parallel algorithm), `finalize()` |
-| `normalize` | HWC uint8 → CHW float32 (naive and blocked variants)                                                    |
+| `resize`    | bbox crop + **fixed-point** (11-bit) bilinear resize with half-pixel centers, exactly as specified in `reference.py` |
+| `stats`     | `Stats {u64 n, u64 S1[3], u64 S2[3]}`, `accumulate(img)`, `merge(a, b)` (integer addition), `finalize()` → μ, σ, LUT |
+| `normalize` | HWC uint8 → CHW float32 through a 256-entry LUT per channel (naive and blocked variants)                |
 | `timer`     | per-stage wall-clock timing, CSV writer                                                                 |
-| `checksum`  | per-image checksum of the output tensor                                                                 |
+| `checksum`  | CRC-32 (zlib polynomial) of the resized and of the normalized tensor                                    |
 
-`Stats::merge` is associative and commutative. The same function serves as the OpenMP
-reduction, the MPI custom op and the Hadoop combiner/reducer. It is also numerically safer
-than `E[x²] − E[x]²`.
+**Everything is exact, so every version must match bit for bit.** Resize is integer
+arithmetic; pass 1 keeps exact integer sums (n, Σv, Σv²), so merging is plain addition in
+any order; μ, σ and the LUT come from a few correctly rounded double operations. The same
+`Stats::merge` serves as the OpenMP reduction, the MPI reduction and the Hadoop
+combiner/reducer. C++ is compiled with `-ffp-contract=off`, so FMA contraction cannot change
+the double results.
 
 ### 5.3 Correctness (every version, every phase)
 
-One checker, `tests/check.py`, compares any version's output against `reference/`:
+One checker, `tests/check.py`, compares any version's output against `results/reference/<set>/`:
 
-| Check                                                         | Tolerance                                             |
-| ------------------------------------------------------------- | ----------------------------------------------------- |
-| μ, σ per channel vs NumPy reference                           | abs. error < 1e-6                                     |
-| Resized uint8 vs Pillow/OpenCV bilinear on 100 sampled images | max \|Δ\| ≤ 1                                         |
-| Normalized tensors vs reference on samples                    | max abs. error < 1e-5                                 |
-| Version vs sequential                                         | stats within 1e-9 relative; per-image checksums equal |
+| Check | Required |
+| --- | --- |
+| n, S1, S2 per channel | identical integers |
+| μ, σ and the LUT | identical bits |
+| per-image `crc_resized` (pinpoints resize bugs) | identical |
+| per-image `crc_normalized` | identical |
+
+`reference.py` also checks the fixed-point resize against float64 bilinear on 64 sampled images. It must stay within 1 gray level; measured: 0.56.
 
 **Cross-version correctness matrix**, filled in as each phase lands and included in the final report:
 
@@ -296,7 +301,8 @@ write stats.json, checksums
 
 - `#pragma omp parallel for schedule(runtime)` over records in both passes.
 - **Pass 1:** thread-local `Stats`, merged with
-  `#pragma omp declare reduction(merge : Stats : ...)`. No `critical` section in the hot loop.
+  `#pragma omp declare reduction(merge : Stats : ...)` (or array `reduction(+ : S1[:3], S2[:3])`).
+  No `critical` section in the hot loop.
 - **Pass 2:** disjoint, precomputed output offsets, so no synchronization is needed.
 - **Scheduling study:** `static`, `static,1`, `dynamic,{1,8,32}`, `guided`. We expect
   `dynamic`/`guided` to win because crop sizes vary. The distribution of crop areas is
@@ -344,9 +350,9 @@ write stats.json, checksums
   (not record count, because sizes vary). It sends each rank its `(start, end)` with
   `MPI_Send` (**point-to-point**).
 - Each rank reads its own byte range of the shards directly (parallel I/O).
-- **Pass 1:** local `Stats` → `MPI_Allreduce` with a custom `MPI_Op` wrapping
-  `Stats::merge` on an `MPI_Type_contiguous` (**collective**). This also acts as the
-  barrier between pass 1 and pass 2.
+- **Pass 1:** local `Stats` (7 × u64) → `MPI_Allreduce(MPI_UINT64_T, MPI_SUM)`
+  (**collective**). Because the sums are exact integers, the result does not depend on
+  reduction order. This also acts as the barrier between pass 1 and pass 2.
 - **Pass 2:** each rank writes its own output range. `MPI_Gather` collects checksums and
   timings to rank 0.
 - **Comparison:** a naive version where rank 0 reads everything and `MPI_Scatterv`s the
@@ -405,17 +411,17 @@ This file is produced in Phase 1 preprocessing (§6.1, step 8).
 ### 8.2 Job 1: Channel statistics (the core job)
 
 - **Mapper:** parse → crop → resize (via `src/common`) → for training images emit
-  `channel \t n,mean,M2` (3 lines per image). Optionally also `class_id:channel \t ...`
-  for the per-class analysis.
-- **Combiner / reducer:** `Stats::merge`.
+  `channel \t n,S1,S2` (3 lines per image, exact integers). Optionally also
+  `class_id:channel \t ...` for the per-class analysis.
+- **Combiner / reducer:** `Stats::merge` (integer addition), so the combiner is trivially correct.
 - **Local test:** `cat sample.txt | ./mapper | sort | ./reducer`. The output must match
-  `reference/stats.json`.
+  `results/reference/<set>/stats.json` exactly.
 
 ### 8.3 Job 2: Normalization (counts as the "second MapReduce job" bonus)
 
 - Map-only (`-numReduceTasks 0`). μ, σ are shipped with `-files stats.json`.
 - Output `image_id \t base64(float32 CHW)`. Checksums are compared against
-  `reference/checksums.txt`.
+  `results/reference/<set>/checksums.csv`.
 
 ### 8.4 Required experiments
 
@@ -486,7 +492,7 @@ The roles are fixed. Each person's focus shifts from phase to phase.
 | Hadoop cluster setup eats Phase 3 time | 3     | Start the Docker cluster while the MPI benchmarks run (§5.6)                                                                                                                            |
 | One week for all three phases          | all   | Required items first, bonuses only at the end (§13); every phase reuses `src/common`, the data artifacts and the bench harness, so Phases 2–3 are mostly new drivers, not new pipelines |
 | Hadoop on one machine is slow          | 3     | Develop on 100 MB; full and aug runs only for final numbers                                                                                                                             |
-| Numerical mismatch across versions     | all   | Shared `Stats::merge` in `src/common`; fixed merge order where bitwise equality matters                                                                                                 |
+| Numerical mismatch across versions     | all   | Exact integer spec (§5.2) + `-ffp-contract=off`; per-image `crc_resized` shows which stage diverged |
 | Report work piling up at deadlines     | all   | Shared CSV schema + plot scripts; fill in the comparison table and correctness matrix as each phase lands                                                                               |
 
 ---

@@ -155,6 +155,125 @@ def record_pixels(shards: list[np.memmap], rec) -> np.ndarray:
     return shards[int(rec["shard"])][off:off + n].reshape(int(rec["h"]), int(rec["w"]), 3)
 
 
+def tool_versions() -> dict:
+    import sys
+    import PIL
+    from PIL import features
+    return {"python": sys.version.split()[0], "numpy": np.__version__,
+            "pillow": PIL.__version__, "libjpeg_turbo": features.version("libjpeg_turbo")}
+
+
+# --------------------------------------------------------------------------- set writer
+class SetWriter:
+    """Write a binary set (index + shards + meta.json) atomically.
+
+    Blocks are appended in the order add() is called. Everything goes to
+    <processed>/.<name>.tmp/ and is renamed to <processed>/<name>/ by commit();
+    leaving the `with` block through an exception deletes the temp dir.
+
+        with SetWriter(processed, "100MB", shard_mb=1024) as sw:
+            for rec, block in ...:
+                sw.add(rec, block)          # rec: index fields except offset/shard/pad
+            sw.verify(expected_sha1)       # optional
+            sw.commit(extra_meta)
+    """
+
+    def __init__(self, processed: Path, name: str, shard_mb: int = 1024):
+        import shutil
+        self.name = name
+        self.final_dir = Path(processed) / name
+        self.tmp_dir = Path(processed) / f".{name}.tmp"
+        if self.tmp_dir.exists():
+            shutil.rmtree(self.tmp_dir)
+        self.tmp_dir.mkdir(parents=True)
+        self.shard_limit = shard_mb * 2**20
+        self._rows: list[tuple] = []
+        self._shard_sizes: list[int] = []
+        self._k, self._pos, self._out = -1, 0, None
+        self._done = False
+
+    def add(self, rec: dict, block) -> None:
+        w, h = int(rec["w"]), int(rec["h"])
+        if len(block) != w * h * 3:
+            raise ValueError(f"image_id {rec['image_id']}: {len(block)} bytes, expected {w}x{h}x3")
+        if w > 0xFFFF or h > 0xFFFF:
+            raise ValueError(f"image_id {rec['image_id']}: {w}x{h} does not fit in u16")
+        start = align_up(self._pos)
+        if self._out is None or (self._pos > 0 and start + len(block) > self.shard_limit):
+            if self._out is not None:
+                self._out.close()
+                self._shard_sizes.append(self._pos)
+            self._k += 1
+            self._out = open(self.tmp_dir / shard_name(self._k), "wb")
+            self._pos = start = 0
+        self._out.write(b"\0" * (start - self._pos))
+        self._out.write(block)
+        self._pos = start + len(block)
+        self._rows.append((start, int(rec["image_id"]), int(rec["class_id"]), int(rec["is_train"]),
+                           int(rec["flags"]), w, h, int(rec["bx"]), int(rec["by"]),
+                           int(rec["bw"]), int(rec["bh"]), self._k, 0))
+
+    def _close_index(self) -> None:
+        if self._out is not None:
+            self._out.close()
+            self._out = None
+            self._shard_sizes.append(self._pos)
+        if not (self.tmp_dir / "index.bin").exists():
+            write_index(self.tmp_dir / "index.bin",
+                        np.array(self._rows, dtype=RECORD_DTYPE), len(self._shard_sizes))
+
+    def verify(self, expected_sha1: dict[int, str]) -> None:
+        """Re-read every block from disk and compare its SHA-1 (image_id -> hex)."""
+        import hashlib
+        self._close_index()
+        records, num_shards = read_index(self.tmp_dir / "index.bin")
+        shards = open_shards(self.tmp_dir, num_shards)
+        for rec in records:
+            iid = int(rec["image_id"])
+            if hashlib.sha1(record_pixels(shards, rec).data).hexdigest() != expected_sha1[iid]:
+                raise RuntimeError(f"{self.name}: verification failed for image_id {iid}")
+        self.verified = True
+
+    def commit(self, extra_meta: dict | None = None) -> dict:
+        import json
+        import shutil
+        self._close_index()
+        records, _ = read_index(self.tmp_dir / "index.bin")
+        meta = {
+            "set": self.name,
+            "format_version": FORMAT_VERSION,
+            "record_size": RECORD_DTYPE.itemsize,
+            "align": ALIGN,
+            "count": int(len(records)),
+            "train": int(records["is_train"].sum()),
+            "test": int(len(records) - records["is_train"].sum()),
+            "classes": int(len(np.unique(records["class_id"]))),
+            "pixel_bytes": int((records["w"].astype(np.int64) * records["h"] * 3).sum()),
+            "shard_files": {shard_name(k): s for k, s in enumerate(self._shard_sizes)},
+            "bytes_on_disk": int(sum(self._shard_sizes) + (self.tmp_dir / "index.bin").stat().st_size),
+            "verified": getattr(self, "verified", False),
+            "tool_versions": tool_versions(),
+            **(extra_meta or {}),
+        }
+        (self.tmp_dir / "meta.json").write_text(json.dumps(meta, indent=2))
+        if self.final_dir.exists():
+            shutil.rmtree(self.final_dir)
+        self.tmp_dir.rename(self.final_dir)
+        self._done = True
+        return meta
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        import shutil
+        if self._out is not None:
+            self._out.close()
+        if not self._done:
+            shutil.rmtree(self.tmp_dir, ignore_errors=True)
+        return False
+
+
 # --------------------------------------------------------------------------- manifest
 def write_manifest(path: Path, rows: list[dict]) -> None:
     with open(path, "w", newline="") as f:

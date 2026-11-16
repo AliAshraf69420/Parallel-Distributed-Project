@@ -1,0 +1,75 @@
+{
+  "source": "/home/SomeWhereMan/UniShit/SW401/Project/Parallel-Distributed-Project/data/raw/CUB_200_2011",
+  "tool_versions": {
+    "python": "3.12.16",
+    "numpy": "2.5.5",
+    "pillow": "11.3.0",
+    "libjpeg_turbo": "3.1.0"
+  },
+  "seconds": 4.87,
+  "before": {
+    "records_listed": 11788,
+    "image_files_found": 11788,
+    "jpeg_bytes_on_disk": 1150650529,
+    "train": 5994,
+    "test": 5794,
+    "classes": 200
+  },
+  "checks": {
+    "dropped_total": 1,
+    "dropped_by_reason": {
+      "missing_meta": 0,
+      "missing_file": 0,
+      "corrupt": 0,
+      "bad_bbox": 0,
+      "duplicate": 1
+    },
+    "converted_to_rgb": {
+      "L": 8
+    },
+    "bbox_clamped": 30,
+    "min_bbox_px": 8
+  },
+  "after": {
+    "records": 11787,
+    "train": 5993,
+    "test": 5794,
+    "classes": 200,
+    "decoded_rgb_bytes": 6339805845,
+    "decoded_rgb_gib": 5.904
+  },
+  "size_stats": {
+    "width": {
+      "min": 121.0,
+      "p05": 333.0,
+      "median": 500.0,
+      "mean": 467.8841096122847,
+      "p95": 500.0,
+      "max": 500.0
+    },
+    "height": {
+      "min": 120.0,
+      "p05": 299.30000000000007,
+      "median": 375.0,
+      "mean": 386.03444472724186,
+      "p95": 500.0,
+      "max": 500.0
+    },
+    "image_pixels": {
+      "min": 19460.0,
+      "p05": 125260.00000000001,
+      "median": 178500.0,
+      "mean": 179288.08136082123,
+      "p95": 234500.0,
+      "max": 250000.0
+    },
+    "bbox_pixels": {
+      "min": 10200.0,
+      "p05": 19450.4,
+      "median": 55506.0,
+      "mean": 61291.30067022992,
+      "p95": 124567.59999999998,
+      "max": 245021.0
+    }
+  }
+}

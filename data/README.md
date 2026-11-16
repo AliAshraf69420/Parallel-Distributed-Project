@@ -32,6 +32,8 @@ Then:
 ```bash
 python3 preprocessing/validate.py    # -> data/processed/manifest.csv + results/preprocessing/
 python3 preprocessing/predecode.py   # -> data/processed/full/{index.bin, shard_*.bin, meta.json}
+python3 preprocessing/make_subsets.py  # -> data/processed/{100MB,500MB}/  (nested, class/split-stratified)
+python3 preprocessing/reference.py   # -> results/reference/{full,100MB,500MB}/{stats.json,checksums.csv}
 ```
 
 | Output | Contents |
@@ -40,6 +42,8 @@ python3 preprocessing/predecode.py   # -> data/processed/full/{index.bin, shard_
 | `results/preprocessing/validation.json` | before/after counts and sizes, drop reasons, RGB conversions, size distribution |
 | `results/preprocessing/dropped.csv` | every dropped image and why |
 | `data/processed/full/` | the predecoded binary set (format documented in `preprocessing/cubfmt.py`) |
+| `data/processed/{100MB,500MB}/` | subsets in the same format; `results/preprocessing/subsets.json` summarizes them |
+| `results/reference/<set>/` | the frozen expected output every implementation must match bit for bit (spec in `preprocessing/reference.py`) |
 
 ## 3. Layout
 

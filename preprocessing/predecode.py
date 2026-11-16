@@ -22,17 +22,11 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
 import os
-import shutil
 import sys
 import time
 from multiprocessing import Pool
 from pathlib import Path
-
-import numpy as np
-import PIL
-from PIL import features
 
 import cubfmt
 
@@ -52,19 +46,6 @@ def _decode(job: tuple[int, str, str]) -> tuple[int, bytes]:
         raise RuntimeError(f"image_id {image_id}: pixels differ from validation "
                            f"(sha1 {got} != {want_sha1}); re-run validate.py")
     return image_id, arr.tobytes()
-
-
-def _verify(set_dir: Path, rows: list[dict]) -> None:
-    records, num_shards = cubfmt.read_index(set_dir / "index.bin")
-    if len(records) != len(rows):
-        raise RuntimeError(f"index has {len(records)} records, manifest {len(rows)}")
-    shards = cubfmt.open_shards(set_dir, num_shards)
-    for rec, row in zip(records, rows):
-        if int(rec["image_id"]) != int(row["image_id"]):
-            raise RuntimeError(f"record order mismatch at image_id {row['image_id']}")
-        px = cubfmt.record_pixels(shards, rec)
-        if hashlib.sha1(px.data).hexdigest() != row["sha1"]:
-            raise RuntimeError(f"verification failed for image_id {row['image_id']}")
 
 
 def main() -> int:
@@ -90,102 +71,32 @@ def main() -> int:
     if not rows:
         print("error: manifest is empty", file=sys.stderr)
         return 1
-
-    final_dir = args.processed / args.name
-    tmp_dir = args.processed / f".{args.name}.tmp"
-    if tmp_dir.exists():
-        shutil.rmtree(tmp_dir)
-    tmp_dir.mkdir(parents=True)
-    shard_limit = args.shard_mb * 2**20
+    by_id = {int(r["image_id"]): r for r in rows}
+    jobs = [(int(r["image_id"]), r["rel_path"], r["sha1"]) for r in rows]
     t0 = time.perf_counter()
 
-    records = np.zeros(len(rows), dtype=cubfmt.RECORD_DTYPE)
-    by_id = {int(r["image_id"]): (n, r) for n, r in enumerate(rows)}
-    shard_sizes: list[int] = []
-    shard_k, pos = -1, 0
-    out = None
-    jobs = [(int(r["image_id"]), r["rel_path"], r["sha1"]) for r in rows]
-
-    try:
-        with Pool(args.jobs, initializer=_init_worker,
-                  initargs=(str(args.root / "images"),)) as pool:
-            # imap (ordered) keeps the shard layout deterministic: image_id order.
-            for done, (image_id, block) in enumerate(pool.imap(_decode, jobs, chunksize=16), 1):
-                n, row = by_id[image_id]
-                w, h = int(row["w"]), int(row["h"])
-                if len(block) != w * h * 3:
-                    raise RuntimeError(f"image_id {image_id}: {len(block)} bytes, expected {w}x{h}x3")
-                if w > 0xFFFF or h > 0xFFFF:
-                    raise RuntimeError(f"image_id {image_id}: {w}x{h} does not fit in u16")
-
-                start = cubfmt.align_up(pos)
-                if out is None or (pos > 0 and start + len(block) > shard_limit):
-                    if out is not None:
-                        out.close()
-                        shard_sizes.append(pos)
-                    shard_k += 1
-                    out = open(tmp_dir / cubfmt.shard_name(shard_k), "wb")
-                    pos = start = 0
-                out.write(b"\0" * (start - pos))
-                out.write(block)
-                pos = start + len(block)
-
-                rec = records[n]
-                rec["offset"] = start
-                rec["image_id"] = image_id
-                rec["class_id"] = int(row["class_id"])
-                rec["is_train"] = int(row["is_train"])
-                rec["flags"] = cubfmt.FLAG_CONVERTED if row["mode"] != "RGB" else 0
-                rec["w"], rec["h"] = w, h
-                rec["bx"], rec["by"] = int(row["bx"]), int(row["by"])
-                rec["bw"], rec["bh"] = int(row["bw"]), int(row["bh"])
-                rec["shard"] = shard_k
-                if done % 1000 == 0 or done == len(jobs):
-                    print(f"  wrote {done}/{len(jobs)} (shard {shard_k})", file=sys.stderr)
-        out.close()
-        out = None
-        shard_sizes.append(pos)
-        cubfmt.write_index(tmp_dir / "index.bin", records, len(shard_sizes))
+    with cubfmt.SetWriter(args.processed, args.name, args.shard_mb) as sw, \
+         Pool(args.jobs, initializer=_init_worker, initargs=(str(args.root / "images"),)) as pool:
+        # imap (ordered) keeps the shard layout deterministic: image_id order.
+        for done, (image_id, block) in enumerate(pool.imap(_decode, jobs, chunksize=16), 1):
+            row = by_id[image_id]
+            sw.add({**row, "flags": cubfmt.FLAG_CONVERTED if row["mode"] != "RGB" else 0}, block)
+            if done % 1000 == 0 or done == len(jobs):
+                print(f"  wrote {done}/{len(jobs)}", file=sys.stderr)
         t_write = time.perf_counter() - t0
-
         if not args.no_verify:
             print("  verifying ...", file=sys.stderr)
-            _verify(tmp_dir, rows)
-        t_total = time.perf_counter() - t0
-
-        pixel_bytes = int(sum(int(r["w"]) * int(r["h"]) * 3 for r in rows))
-        meta = {
-            "set": args.name,
-            "format_version": cubfmt.FORMAT_VERSION,
-            "record_size": cubfmt.RECORD_DTYPE.itemsize,
-            "align": cubfmt.ALIGN,
-            "count": len(rows),
-            "train": int(records["is_train"].sum()),
-            "test": int(len(rows) - records["is_train"].sum()),
-            "classes": int(len(np.unique(records["class_id"]))),
-            "pixel_bytes": pixel_bytes,
-            "shard_files": {cubfmt.shard_name(k): s for k, s in enumerate(shard_sizes)},
-            "bytes_on_disk": int(sum(shard_sizes) + (tmp_dir / "index.bin").stat().st_size),
+            sw.verify({int(r["image_id"]): r["sha1"] for r in rows})
+        meta = sw.commit({
             "source_manifest_sha1": hashlib.sha1(manifest.read_bytes()).hexdigest(),
-            "verified": not args.no_verify,
-            "seconds": {"decode_write": round(t_write, 2), "total": round(t_total, 2)},
-            "tool_versions": {"python": sys.version.split()[0], "numpy": np.__version__,
-                              "pillow": PIL.__version__,
-                              "libjpeg_turbo": features.version("libjpeg_turbo")},
-        }
-        (tmp_dir / "meta.json").write_text(json.dumps(meta, indent=2))
-    except BaseException:
-        if out is not None:
-            out.close()
-        shutil.rmtree(tmp_dir, ignore_errors=True)
-        raise
+            "seconds": {"decode_write": round(t_write, 2),
+                        "total": round(time.perf_counter() - t0, 2)},
+        })
 
-    if final_dir.exists():
-        shutil.rmtree(final_dir)
-    tmp_dir.rename(final_dir)
-    print(f"{args.name}: {meta['count']} images, {len(shard_sizes)} shard(s), "
+    print(f"{args.name}: {meta['count']} images, {len(meta['shard_files'])} shard(s), "
           f"{meta['bytes_on_disk'] / 2**30:.3f} GiB on disk, "
-          f"{'verified' if meta['verified'] else 'NOT verified'}, {t_total:.1f} s -> {final_dir}")
+          f"{'verified' if meta['verified'] else 'NOT verified'}, "
+          f"{meta['seconds']['total']:.1f} s -> {sw.final_dir}")
     return 0
 
 
