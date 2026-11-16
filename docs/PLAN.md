@@ -104,7 +104,8 @@ optional output in every phase and as a second key in the Hadoop job, see §8.2.
 | Need                                     | Dataset used                                                                                                                                            |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Phase 1 thread scaling                   | 100 MB, 500 MB, full (decoded)                                                                                                                          |
-| Phase 1 Gustafson / Phase 2 weak scaling | **augmented ×k** sets, k ∈ {1, 2, 4, 8}: horizontal flip plus fixed jittered crops with seeded RNG, so they are reproducible and can be checked bitwise |
+| Phase 1 Gustafson                        | nested subsets of p × 700 MiB (700MB, 1400MB, 2800MB, 5600MB) for p = 1, 2, 4, 8; no augmentation needed |
+| Phase 2 weak scaling                     | **augmented ×k** sets, k ∈ {1, 2, 4, 8}: horizontal flip plus fixed jittered crops with seeded RNG, so they are reproducible and can be checked bitwise |
 | Phase 2 strong scaling                   | full                                                                                                                                                    |
 | Phase 3 comparison table                 | 100 MB, 500 MB, full (text format)                                                                                                                      |
 | Phase 3 failure experiment               | augmented ×4 text (a job long enough to kill a node mid-run)                                                                                            |
@@ -128,8 +129,9 @@ creates its own copy of the data.
 
 We keep the original size (not pre-resized) on purpose:
 
-- Image sizes vary, so the work per record is **uneven**. That makes the OpenMP scheduling
-  comparison (Phase 1) and pixel-balanced partitioning (Phase 2) meaningful.
+- The crop + resize reads the original pixels, so every implementation does the real work.
+  (Measured in Phase 1: the per-image cost is nearly uniform, because the resize cost
+  depends on the fixed 224×224 output, not on the crop size. See §6.3.)
 - The index lets any worker jump straight to any record, which is needed for MPI
   partitioning.
 - Hadoop runs exactly the same crop + resize in its mapper.
@@ -233,7 +235,7 @@ One checker, `tests/check.py`, compares any version's output against `results/re
   table work unchanged:
 
 ```
-phase,version,dataset,workers,threads_per_worker,schedule,cache,preload,run,t_load,t_pass1,t_merge,t_pass2,t_write,t_total,host
+phase,version,dataset,workers,threads_per_worker,schedule,order,cache,preload,run,t_load,t_pass1,t_merge,t_pass2,t_write,t_total,host
 ```
 
 - `scripts/bench/run_all.sh <version>` produces the CSV, and `plots/make_plots.py`
@@ -304,12 +306,14 @@ write stats.json, checksums
   `#pragma omp declare reduction(merge : Stats : ...)` (or array `reduction(+ : S1[:3], S2[:3])`).
   No `critical` section in the hot loop.
 - **Pass 2:** disjoint, precomputed output offsets, so no synchronization is needed.
-- **Scheduling study:** `static`, `static,1`, `dynamic,{1,8,32}`, `guided`. We expect
-  `dynamic`/`guided` to win because crop sizes vary. The distribution of crop areas is
-  plotted to explain the result.
+- **Scheduling study:** `static`, `static,1`, `dynamic,{1,16}`, `guided`, at 4 and 8 threads,
+  on 100MB and full, in storage order and with the largest crops first (`--order area-desc`).
+  The original hypothesis (dynamic/guided win because crop sizes vary 24×) was wrong: the
+  resize cost depends on the fixed 224×224 output, so the per-image work is nearly uniform
+  (measured with `seq --record-times`). `static` therefore has the lowest overhead, and the
+  report explains why with the per-image time distribution.
 - **Pinning:** `OMP_PROC_BIND=close`, `OMP_PLACES=cores`.
-- **Tasks:** an `omp task` variant that splits very large crops into row bands, for
-  comparison.
+- **Tasks:** dropped. With uniform per-image work there are no large items to split.
 
 ### 6.4 C++ thread pool (`src/threads/`)
 
@@ -327,11 +331,15 @@ write stats.json, checksums
 - Threads p ∈ {1, 2, 4, 8} × {100 MB, 500 MB, full}. Report S, E and the serial fraction
   f = (1/S − 1/p)/(1 − 1/p).
 - **Amdahl:** expected serial parts are index load, final merge and the writer.
-  **Gustafson:** aug ×p sets.
-- **Layout:** naive vs **blocked (32×32)** HWC → CHW transpose. Row-major vs column-major
-  resize traversal.
-- `perf stat -e cache-references,cache-misses,L1-dcache-load-misses,LLC-load-misses`.
-- **False sharing:** packed vs `alignas(64)` per-thread `Stats` array.
+  **Gustafson:** p threads on the p × 700 MiB nested subsets.
+- Runner: `scripts/bench/phase1.py` (strong, schedule, weak, per-image times); plots and
+  tables: `plots/phase1.py`.
+- **Memory hierarchy** (`build/memexp`): working-set sweep (L1/L2/L3/DRAM steps) and stride
+  sweep on shard bytes; row-major vs column-major resize traversal (bit-identical output,
+  so only locality differs); `perf stat -e cache-references,cache-misses,L1-dcache-loads,
+  L1-dcache-load-misses` on each variant.
+- **False sharing:** per-thread counters packed into shared lines vs `alignas(64)` padded vs
+  register-local (production), 8 threads.
 
 ### 6.6 Deliverables
 
@@ -509,12 +517,12 @@ Phase 1 is due **2026-11-17**. Phases 2 and 3 are targeted for the same week
 3. `src/common` + the sequential baseline, verified with `check.py`.
 4. OpenMP + scheduling study.
 5. Bench harness: {1, 2, 4, 8} threads × 3 datasets × 3 runs. Speedup/efficiency plots.
-6. `perf stat`, naive vs blocked transpose, false-sharing test.
+6. `build/memexp` experiments + `perf stat`, false-sharing test.
 7. Report (5–7 pages) + 2-minute video.
 
 **Can move to the Phase 2 submission if time runs out:** the thread pool (§6.4), since
 the four-tool requirement covers the whole project, not each phase; the `omp task`
-variant; the aug ×8 set (Gustafson can use ×2 and ×4).
+variant (dropped, see §6.3).
 
 ### Phase 2
 

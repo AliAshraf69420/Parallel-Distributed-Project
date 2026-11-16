@@ -12,8 +12,9 @@ Hadoop Streaming. Every implementation must match one frozen reference **bit for
 | Part | Status |
 |---|---|
 | Preprocessing (validate, predecode, subsets, reference) | Done |
-| Sequential baseline, OpenMP, correctness checker | Done |
-| C++ thread pool, benchmark harness, plots | To do |
+| Sequential baseline, OpenMP, C++ thread pipeline, correctness checker | Done |
+| Phase 1 benchmarks, plots, memory-hierarchy experiments | Done (perf counters need `perf`) |
+| Phase 1 report and video | To do |
 | Phase 2: MPI | To do |
 | Phase 3: Hadoop Streaming | To do |
 
@@ -33,8 +34,8 @@ Run every command **from the repository root**.
 | OpenMPI | Phase 2 | `pacman -S openmpi` / `apt install openmpi-bin libopenmpi-dev` |
 | Docker | Phase 3 (Hadoop cluster) | distro package |
 
-Disk: about **15 GB** free (1.1 GB download, 1.2 GB extracted, 5.9 GB predecoded full set,
-0.6 GB subsets, plus outputs). RAM: 8 GB or more.
+Disk: about **28 GB** free (1.1 GB download, 1.2 GB extracted, 5.9 GB predecoded full set,
+0.6 GB subsets, 10.5 GB weak-scaling subsets, plus outputs). RAM: 8 GB or more.
 
 ### 1. Clone and create the Python environment
 
@@ -60,7 +61,7 @@ cd data/raw && tar -xzf /path/to/CUB_200_2011.tgz && cd ../..
 
 ### 3. Preprocess (in this order)
 
-Each step reads the previous step's output. Or run all four with `make data`.
+Each step reads the previous step's output. Or run all of them with `make data`.
 
 | # | Command | Produces | Time* |
 |---|---|---|---|
@@ -68,6 +69,8 @@ Each step reads the previous step's output. Or run all four with `make data`.
 | 2 | `python preprocessing/predecode.py` | `data/processed/full/` (index + 6 shards, 5.9 GiB, verified) | ~25 s |
 | 3 | `python preprocessing/make_subsets.py` | `data/processed/{100MB,500MB}/` | ~5 s |
 | 4 | `python preprocessing/reference.py` | `results/reference/{full,100MB,500MB}/{stats.json, checksums.csv}` | ~100 s |
+| 5 | `python preprocessing/make_subsets.py --sizes 700 1400 2800 5600 --reports results/preprocessing/weak` | weak-scaling sets `data/processed/{700,1400,2800,5600}MB/` (p × 700 MiB) | ~20 s |
+| 6 | `python preprocessing/reference.py --sets 700MB 1400MB 2800MB 5600MB` | their references | ~150 s |
 
 \* Ryzen 7 5800H (8 cores / 16 threads), NVMe SSD.
 
@@ -83,13 +86,13 @@ Each step reads the previous step's output. Or run all four with `make data`.
 ### 4. Build the C++ implementations
 
 ```bash
-make            # -> build/seq, build/omp   (flags: -O3 -march=native -ffp-contract=off)
+make            # -> build/{seq,omp,threads,memexp}   (flags: -O3 -march=native -ffp-contract=off)
 ```
 
 ### 5. Run and verify
 
 ```bash
-make test       # runs seq and omp on the 100MB set and checks both against the reference
+make test       # runs seq, omp and threads on the 100MB set and checks each against the reference
 ```
 
 Each run of `build/<version>` writes `stats.json` and `checksums.csv` to
@@ -111,12 +114,39 @@ Options common to every implementation (`build/seq --help`):
 | `--set SET` | `full`, `500MB`, `100MB` (or a path to a set directory) |
 | `-t N` | threads (parallel versions) |
 | `--schedule S` | OpenMP schedule: `static[,k]`, `dynamic[,k]`, `guided[,k]` |
+| `--order O` | processing order: `id` (storage order), `area-desc`, `area-asc` (by crop area) |
 | `--preload` | read the set into the page cache before timing, so the times measure compute rather than disk |
 | `--cache` | resize every image once in pass 1 and reuse it in pass 2 (~1.8 GB RAM for `full`) |
 | `--csv FILE` | append one timing row (load, pass1, merge, pass2, write, total) |
 | `--write FILE` | also write all normalized tensors (n × 602,112 bytes; ≈ 7.1 GB for `full`) |
+| `--record-times FILE` | `seq` only: per-image pass-2 time and crop size |
 
-Reference timings on the full set with `--preload`: `seq` ≈ 12.3 s, and `omp -t 8` ≈ 1.6 s.
+Reference timings on the full set with `--preload`: `seq` ≈ 12.3 s, and `omp -t 8` / `threads -t 8` ≈ 1.6 s.
+
+### 6. Phase 1 benchmarks and plots
+
+Close other programs first (the runner warns if the load average is high).
+
+```bash
+python scripts/bench/phase1.py       # ~10 min: strong, schedule, weak, per-image times
+python plots/phase1.py               # -> plots/phase1/*.png, results/timings/phase1_summary.md
+```
+
+Every configuration gets one warm-up run plus 3 measured runs (the median is reported), uses
+`--preload`, and pins threads one per physical core (`OMP_PROC_BIND=close OMP_PLACES=cores`).
+The first measured run of each configuration is checked bit-exactly; a FAIL aborts the run.
+Raw rows go to `results/timings/phase1_*.csv`, and machine details to `phase1_env.json`.
+
+### 7. Memory-hierarchy experiments
+
+```bash
+build/memexp wss                     # time per cache line vs working-set size (L1/L2/L3/DRAM)
+build/memexp stride                  # time per access vs stride
+build/memexp resize-order            # row-major vs column-major resize (identical output)
+build/memexp false-sharing -t 8      # packed vs padded vs local per-thread counters
+perf stat -e cache-references,cache-misses,L1-dcache-loads,L1-dcache-load-misses \
+    build/memexp resize-order --variant col    # repeat with --variant row
+```
 
 ---
 
@@ -129,6 +159,10 @@ Reference timings on the full set with `--preload`: `seq` ≈ 12.3 s, and `omp -
 ├── preprocessing/        Python: validate → predecode → subsets → reference
 ├── src/common/           shared C++: set reader, kernels (resize/stats/normalize/CRC), driver
 ├── src/seq/, src/omp/    one main.cpp each: only the loops differ
+├── src/threads/          std::thread pipeline: reader -> workers -> writer, bounded queues
+├── src/memexp/           memory-hierarchy and false-sharing experiments
+├── scripts/bench/        benchmark runners (phase1.py)
+├── plots/                plot + table scripts and their PNG output
 ├── tests/check.py        bit-exact comparison against results/reference/
 ├── data/                 raw/ and processed/ are gitignored; README has download steps
 └── results/              preprocessing reports, reference outputs, timings (runs/ gitignored)

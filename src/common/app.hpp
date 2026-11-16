@@ -21,6 +21,8 @@ struct Options {
     std::string csv;           // append one timing row here ("" = don't)
     std::string write_path;    // write normalized tensors to this file ("" = don't)
     std::string schedule;      // OpenMP schedule, e.g. "dynamic,8" ("" = OMP_SCHEDULE)
+    std::string order = "id";  // record processing order: id | area-desc | area-asc
+    std::string record_times;  // seq only: per-record pass-2 time CSV ("" = don't)
     int threads = 0;           // 0 = implementation default
     int run = 0;               // run number, for the CSV
     bool cache = false;        // keep resized images between passes
@@ -72,9 +74,16 @@ struct RunOutput {
 };
 
 // ---- per-record work (identical in every implementation) --------------------
-// Indices of the records pass 1 visits: train records, or all records with --cache
+// Order in which records are processed (pass 2 visits all of them in this order).
+// "id" is the storage order; "area-desc"/"area-asc" sort by crop area (the per-image
+// cost), which makes block-static scheduling maximally unbalanced (scheduling study).
+// Outputs are always indexed by record, so the order never changes the results.
+std::vector<size_t> record_order(const Dataset& ds, const std::string& order);
+
+// Records pass 1 visits, in processing order: train records, or all records with --cache
 // (then every image is resized once in pass 1 and pass 2 reuses it).
-std::vector<size_t> pass1_indices(const Dataset& ds, bool cache);
+std::vector<size_t> pass1_indices(const Dataset& ds, const std::vector<size_t>& order,
+                                  bool cache);
 
 // Pass 1 for record i: resize into `resized`, accumulate into st if it is a train record.
 inline void pass1_record(const Dataset& ds, size_t i, uint8_t* resized, Stats& st) {

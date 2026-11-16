@@ -16,7 +16,7 @@ OMPFLAGS := -fopenmp
 BUILD      := build
 COMMON_SRC := $(wildcard src/common/*.cpp)
 COMMON_OBJ := $(COMMON_SRC:src/%.cpp=$(BUILD)/obj/%.o)
-BINARIES   := $(BUILD)/seq $(BUILD)/omp
+BINARIES   := $(BUILD)/seq $(BUILD)/omp $(BUILD)/threads $(BUILD)/memexp
 
 .PHONY: all data test check clean
 all: $(BINARIES)
@@ -29,10 +29,20 @@ $(BUILD)/obj/omp/%.o: src/omp/%.cpp
 	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) $(OMPFLAGS) -c $< -o $@
 
+$(BUILD)/obj/memexp/%.o: src/memexp/%.cpp
+	@mkdir -p $(@D)
+	$(CXX) $(CXXFLAGS) $(OMPFLAGS) -c $< -o $@
+
 $(BUILD)/seq: $(BUILD)/obj/seq/main.o $(COMMON_OBJ)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 $(BUILD)/omp: $(BUILD)/obj/omp/main.o $(COMMON_OBJ)
+	$(CXX) $(CXXFLAGS) $(OMPFLAGS) $^ -o $@
+
+$(BUILD)/threads: $(BUILD)/obj/threads/main.o $(COMMON_OBJ)
+	$(CXX) $(CXXFLAGS) -pthread $^ -o $@
+
+$(BUILD)/memexp: $(BUILD)/obj/memexp/main.o $(COMMON_OBJ)
 	$(CXX) $(CXXFLAGS) $(OMPFLAGS) $^ -o $@
 
 -include $(shell find $(BUILD) -name '*.d' 2>/dev/null)
@@ -43,6 +53,8 @@ data:
 	$(PYTHON) preprocessing/predecode.py
 	$(PYTHON) preprocessing/make_subsets.py
 	$(PYTHON) preprocessing/reference.py
+	$(PYTHON) preprocessing/make_subsets.py --sizes 700 1400 2800 5600 --reports results/preprocessing/weak
+	$(PYTHON) preprocessing/reference.py --sets 700MB 1400MB 2800MB 5600MB
 
 # ---- correctness ---------------------------------------------------------------------------
 V   ?= seq
@@ -55,6 +67,8 @@ test: $(BINARIES)
 	$(PYTHON) tests/check.py --set 100MB --run results/runs/seq/100MB
 	$(BUILD)/omp --set 100MB --schedule dynamic,1
 	$(PYTHON) tests/check.py --set 100MB --run results/runs/omp/100MB
+	$(BUILD)/threads --set 100MB
+	$(PYTHON) tests/check.py --set 100MB --run results/runs/threads/100MB
 
 clean:
 	rm -rf $(BUILD)

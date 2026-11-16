@@ -71,7 +71,8 @@ int main(int argc, char** argv) try {
     std::unique_ptr<TensorWriter> writer;
     if (!opt.write_path.empty()) writer = std::make_unique<TensorWriter>(opt.write_path, ds.size());
     std::vector<uint8_t> cache(opt.cache ? ds.size() * kResizedBytes : 0);
-    const std::vector<size_t> p1 = pass1_indices(ds, opt.cache);
+    const std::vector<size_t> order = record_order(ds, opt.order);
+    const std::vector<size_t> p1 = pass1_indices(ds, order, opt.cache);
     const long n1 = long(p1.size()), n2 = long(ds.size());
     out.t.load = sw.lap();
 
@@ -98,9 +99,10 @@ int main(int argc, char** argv) try {
         std::vector<uint8_t> scratch(opt.cache ? 0 : kResizedBytes);
         std::vector<float> tensor(kOutPixels * 3);
 #pragma omp for schedule(runtime)
-        for (long i = 0; i < n2; ++i) {
-            uint8_t* buf = opt.cache ? &cache[size_t(i) * kResizedBytes] : scratch.data();
-            pass2_record(ds, size_t(i), out.norm, buf, opt.cache, tensor.data(), out, writer.get());
+        for (long k = 0; k < n2; ++k) {
+            const size_t i = order[k];
+            uint8_t* buf = opt.cache ? &cache[i * kResizedBytes] : scratch.data();
+            pass2_record(ds, i, out.norm, buf, opt.cache, tensor.data(), out, writer.get());
         }
     }
     out.t.pass2 = sw.lap();

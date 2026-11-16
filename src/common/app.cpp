@@ -6,6 +6,7 @@
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
+#include <algorithm>
 #include <cstring>
 #include <filesystem>
 #include <stdexcept>
@@ -26,7 +27,9 @@ namespace {
         "  --write FILE     also write all normalized tensors to FILE (n x 602112 bytes)\n"
         "  -t, --threads N  threads (parallel versions; default: all cores)\n"
         "  --schedule S     OpenMP schedule: static[,k] | dynamic[,k] | guided[,k] | auto\n"
+        "  --order O        processing order: id (default) | area-desc | area-asc\n"
         "  --run K          run number recorded in the CSV (default 0)\n"
+        "  --record-times F seq only: write per-image pass-2 time (us) and crop size to F\n"
         "  --cache          resize every image once in pass 1 and keep it for pass 2\n"
         "  --preload        read all shards into the page cache before timing starts\n"
         "  -q, --quiet      no summary line\n",
@@ -78,6 +81,8 @@ Options parse_args(int argc, char** argv, const std::string& version) {
         else if (a == "--schedule") o.schedule = value();
         else if (a == "-t" || a == "--threads") o.threads = std::atoi(value().c_str());
         else if (a == "--run") o.run = std::atoi(value().c_str());
+        else if (a == "--order") o.order = value();
+        else if (a == "--record-times") o.record_times = value();
         else if (a == "--cache") o.cache = true;
         else if (a == "--preload") o.preload = true;
         else if (a == "-q" || a == "--quiet") o.quiet = true;
@@ -87,6 +92,10 @@ Options parse_args(int argc, char** argv, const std::string& version) {
         }
     }
     if (o.set_dir.empty()) usage(version, 2);
+    if (o.order != "id" && o.order != "area-desc" && o.order != "area-asc") {
+        std::fprintf(stderr, "%s: unknown order '%s'\n", version.c_str(), o.order.c_str());
+        usage(version, 2);
+    }
     if (!fs::exists(fs::path(o.set_dir) / "index.bin")) {
         const fs::path by_name = fs::path("data/processed") / o.set_dir;
         if (o.set_dir.find('/') == std::string::npos && fs::exists(by_name / "index.bin")) {
@@ -129,10 +138,24 @@ void TensorWriter::put(size_t i, const float* tensor) const {
 }
 
 // ---------------------------------------------------------------- passes
-std::vector<size_t> pass1_indices(const Dataset& ds, bool cache) {
+std::vector<size_t> record_order(const Dataset& ds, const std::string& order) {
+    std::vector<size_t> idx(ds.size());
+    for (size_t i = 0; i < idx.size(); ++i) idx[i] = i;
+    if (order != "id") {
+        auto area = [&](size_t i) { return uint32_t(ds[i].bw) * ds[i].bh; };
+        const bool desc = order == "area-desc";
+        std::stable_sort(idx.begin(), idx.end(), [&](size_t a, size_t b) {
+            return desc ? area(a) > area(b) : area(a) < area(b);
+        });
+    }
+    return idx;
+}
+
+std::vector<size_t> pass1_indices(const Dataset& ds, const std::vector<size_t>& order,
+                                  bool cache) {
     std::vector<size_t> idx;
-    idx.reserve(ds.size());
-    for (size_t i = 0; i < ds.size(); ++i)
+    idx.reserve(order.size());
+    for (size_t i : order)
         if (cache || ds[i].is_train) idx.push_back(i);
     return idx;
 }
@@ -189,23 +212,24 @@ void finish_run(const Options& opt, const Dataset& ds, RunOutput& out, int worke
         std::FILE* f = std::fopen(opt.csv.c_str(), "a");
         if (!f) throw std::runtime_error("cannot append to " + opt.csv);
         if (fresh)
-            std::fputs("phase,version,dataset,workers,threads_per_worker,schedule,cache,preload,"
+            std::fputs("phase,version,dataset,workers,threads_per_worker,schedule,order,cache,preload,"
                        "run,t_load,t_pass1,t_merge,t_pass2,t_write,t_total,host\n", f);
         char host[256] = "unknown";
         ::gethostname(host, sizeof host - 1);
-        std::fprintf(f, "%d,%s,%s,%d,%d,%s,%d,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%s\n",
+        std::fprintf(f, "%d,%s,%s,%d,%d,%s,%s,%d,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%s\n",
                      phase_of(opt.version), opt.version.c_str(), ds.name().c_str(), workers,
-                     threads, schedule.c_str(), int(opt.cache), int(opt.preload), opt.run,
+                     threads, schedule.c_str(), opt.order.c_str(), int(opt.cache),
+                     int(opt.preload), opt.run,
                      out.t.load, out.t.pass1, out.t.merge, out.t.pass2, out.t.write, out.t.total,
                      host);
         std::fclose(f);
     }
     if (!opt.quiet)
-        std::printf("%s %s: %zu images (%zu train) | workers=%d threads=%d schedule=%s%s | "
+        std::printf("%s %s: %zu images (%zu train) | workers=%d threads=%d schedule=%s order=%s%s | "
                     "load %.3f  pass1 %.3f  merge %.6f  pass2 %.3f  write %.3f  total %.3f s"
                     " | mean %.6f %.6f %.6f -> %s\n",
                     opt.version.c_str(), ds.name().c_str(), ds.size(), train, workers, threads,
-                    schedule.c_str(), opt.cache ? " cache" : "", out.t.load, out.t.pass1,
+                    schedule.c_str(), opt.order.c_str(), opt.cache ? " cache" : "", out.t.load, out.t.pass1,
                     out.t.merge, out.t.pass2, out.t.write, out.t.total, nz.mean[0], nz.mean[1],
                     nz.mean[2], opt.out_dir.c_str());
 }
