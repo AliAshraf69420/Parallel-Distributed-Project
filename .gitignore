@@ -20,5 +20,6 @@ report/*.fdb_latexmk
 report/*.synctex.gz
 report/main.pdf
 report/phase2.pdf
+report/final.pdf
 
 build-cluster/

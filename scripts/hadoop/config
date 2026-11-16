@@ -1,0 +1,60 @@
+# Hadoop configuration for the Docker cluster, in the apache/hadoop image's env-file format:
+#   <FILE>_<property>=<value>   ->   property in /opt/hadoop/etc/hadoop/<file>
+# Sized for one laptop (about 7 GB of free RAM): small JVM heaps, 2 task containers per node.
+
+CORE-SITE.XML_fs.defaultFS=hdfs://namenode:8020
+CORE-SITE.XML_hadoop.http.staticuser.user=hadoop
+
+HDFS-SITE.XML_dfs.namenode.rpc-address=namenode:8020
+HDFS-SITE.XML_dfs.replication=2
+HDFS-SITE.XML_dfs.blocksize=134217728
+HDFS-SITE.XML_dfs.permissions.enabled=false
+# Failure detection: declare a DataNode dead after 2 x 10 s + 10 x 1 s = 30 s
+# (Hadoop's default is 10.5 minutes), so the failure experiment fits in a demo.
+HDFS-SITE.XML_dfs.heartbeat.interval=1
+HDFS-SITE.XML_dfs.namenode.heartbeat.recheck-interval=10000
+# With only 3 DataNodes, do not try to replace a failed node in a write pipeline.
+HDFS-SITE.XML_dfs.client.block.write.replace-datanode-on-failure.enable=false
+
+MAPRED-SITE.XML_mapreduce.framework.name=yarn
+MAPRED-SITE.XML_yarn.app.mapreduce.am.env=HADOOP_MAPRED_HOME=/opt/hadoop
+MAPRED-SITE.XML_mapreduce.map.env=HADOOP_MAPRED_HOME=/opt/hadoop
+MAPRED-SITE.XML_mapreduce.reduce.env=HADOOP_MAPRED_HOME=/opt/hadoop
+MAPRED-SITE.XML_mapreduce.map.memory.mb=768
+MAPRED-SITE.XML_mapreduce.map.java.opts=-Xmx384m
+MAPRED-SITE.XML_mapreduce.reduce.memory.mb=768
+MAPRED-SITE.XML_mapreduce.reduce.java.opts=-Xmx384m
+MAPRED-SITE.XML_yarn.app.mapreduce.am.resource.mb=768
+MAPRED-SITE.XML_yarn.app.mapreduce.am.command-opts=-Xmx512m
+MAPRED-SITE.XML_mapreduce.task.io.sort.mb=64
+# A task that reports nothing for 60 s is killed and retried (default 10 minutes).
+MAPRED-SITE.XML_mapreduce.task.timeout=60000
+
+YARN-SITE.XML_yarn.resourcemanager.hostname=resourcemanager
+YARN-SITE.XML_yarn.nodemanager.aux-services=mapreduce_shuffle
+YARN-SITE.XML_yarn.nodemanager.pmem-check-enabled=false
+YARN-SITE.XML_yarn.nodemanager.vmem-check-enabled=false
+YARN-SITE.XML_yarn.nodemanager.resource.memory-mb=1792
+YARN-SITE.XML_yarn.nodemanager.resource.cpu-vcores=2
+YARN-SITE.XML_yarn.scheduler.minimum-allocation-mb=256
+YARN-SITE.XML_yarn.scheduler.maximum-allocation-mb=1792
+YARN-SITE.XML_yarn.nodemanager.delete.debug-delay-sec=600
+YARN-SITE.XML_yarn.log-aggregation-enable=false
+# Declare a NodeManager lost after 20 s without a heartbeat (default 10 minutes).
+YARN-SITE.XML_yarn.nm.liveness-monitor.expiry-interval-ms=20000
+YARN-SITE.XML_yarn.resourcemanager.nm.liveness-monitor.expiry-interval-ms=20000
+YARN-SITE.XML_yarn.am.liveness-monitor.expiry-interval-ms=60000
+
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.maximum-applications=10000
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.maximum-am-resource-percent=0.5
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.resource-calculator=org.apache.hadoop.yarn.util.resource.DefaultResourceCalculator
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.root.queues=default
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.root.default.capacity=100
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.root.default.user-limit-factor=1
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.root.default.maximum-capacity=100
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.root.default.state=RUNNING
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.root.default.acl_submit_applications=*
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.root.default.acl_administer_queue=*
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.node-locality-delay=40
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.queue-mappings=
+CAPACITY-SCHEDULER.XML_yarn.scheduler.capacity.queue-mappings-override.enable=false

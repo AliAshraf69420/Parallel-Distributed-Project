@@ -1,0 +1,64 @@
+packageJobJar: [/tmp/hadoop-unjar2781171761719087125/] [] /tmp/streamjob6016747142246010362.jar tmpDir=null
+2026-11-16 12:24:17 INFO  DefaultNoHARMFailoverProxyProvider:64 - Connecting to ResourceManager at resourcemanager/172.20.0.3:8032
+2026-11-16 12:24:17 INFO  DefaultNoHARMFailoverProxyProvider:64 - Connecting to ResourceManager at resourcemanager/172.20.0.3:8032
+2026-11-16 12:24:18 INFO  JobResourceUploader:907 - Disabling Erasure Coding for path: /tmp/hadoop-yarn/staging/hadoop/.staging/job_1794831237179_0008
+2026-11-16 12:24:18 INFO  FileInputFormat:267 - Total input files to process : 1
+2026-11-16 12:24:18 INFO  NetworkTopology:156 - Adding a new node: /default-rack/172.20.0.9:9866
+2026-11-16 12:24:18 INFO  NetworkTopology:156 - Adding a new node: /default-rack/172.20.0.5:9866
+2026-11-16 12:24:18 INFO  NetworkTopology:156 - Adding a new node: /default-rack/172.20.0.8:9866
+2026-11-16 12:24:18 INFO  JobSubmitter:203 - number of splits:2
+2026-11-16 12:24:18 INFO  JobSubmitter:299 - Submitting tokens for job: job_1794831237179_0008
+2026-11-16 12:24:18 INFO  JobSubmitter:300 - Executing with tokens: []
+2026-11-16 12:24:18 INFO  Configuration:2898 - resource-types.xml not found
+2026-11-16 12:24:18 INFO  ResourceUtils:476 - Unable to find 'resource-types.xml'.
+2026-11-16 12:24:18 INFO  YarnClientImpl:356 - Submitted application application_1794831237179_0008
+2026-11-16 12:24:18 INFO  Job:1681 - The url to track the job: http://resourcemanager:8088/proxy/application_1794831237179_0008/
+2026-11-16 12:24:18 INFO  Job:1726 - Running job: job_1794831237179_0008
+2026-11-16 12:24:23 INFO  Job:1747 - Job job_1794831237179_0008 running in uber mode : false
+2026-11-16 12:24:23 INFO  Job:1754 -  map 0% reduce 0%
+2026-11-16 12:24:27 INFO  Job:1754 -  map 50% reduce 0%
+2026-11-16 12:24:28 INFO  Job:1754 -  map 100% reduce 0%
+2026-11-16 12:24:28 INFO  Job:1765 - Job job_1794831237179_0008 completed successfully
+2026-11-16 12:24:29 INFO  Job:1772 - Counters: 34
+	File System Counters
+		FILE: Number of bytes read=0
+		FILE: Number of bytes written=626170
+		FILE: Number of read operations=0
+		FILE: Number of large read operations=0
+		FILE: Number of write operations=0
+		HDFS: Number of bytes read=141163551
+		HDFS: Number of bytes written=4503
+		HDFS: Number of read operations=14
+		HDFS: Number of large read operations=0
+		HDFS: Number of write operations=4
+		HDFS: Number of bytes read erasure-coded=0
+	Job Counters 
+		Launched map tasks=2
+		Rack-local map tasks=2
+		Total time spent by all maps in occupied slots (ms)=12522
+		Total time spent by all reduces in occupied slots (ms)=0
+		Total time spent by all map tasks (ms)=4174
+		Total vcore-milliseconds taken by all map tasks=4174
+		Total megabyte-milliseconds taken by all map tasks=3205632
+	Map-Reduce Framework
+		Map input records=195
+		Map output records=195
+		Input split bytes=172
+		Spilled Records=0
+		Failed Shuffles=0
+		Merged Map outputs=0
+		GC time elapsed (ms)=68
+		CPU time spent (ms)=1460
+		Physical memory (bytes) snapshot=471793664
+		Virtual memory (bytes) snapshot=4447469568
+		Total committed heap usage (bytes)=434634752
+		Peak Map Physical memory (bytes)=237113344
+		Peak Map Virtual memory (bytes)=2224345088
+	CUB
+		images_normalized=195
+	File Input Format Counters 
+		Bytes Read=141163379
+	File Output Format Counters 
+		Bytes Written=4503
+2026-11-16 12:24:29 INFO  StreamJob:1029 - Output directory: /out/normalize-100MB
+elapsed_s=12.699933319

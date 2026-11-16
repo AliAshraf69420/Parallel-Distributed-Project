@@ -1,0 +1,373 @@
+{
+  "set": "full",
+  "timeline": [
+    {
+      "t": 32.9,
+      "map_progress": 30,
+      "job_running": true,
+      "datanodes": 3,
+      "under_replicated": 0,
+      "missing_replicas": 0,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 38.7,
+      "map_progress": 30,
+      "job_running": true,
+      "datanodes": 3,
+      "under_replicated": 0,
+      "missing_replicas": 0,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 44.3,
+      "map_progress": 30,
+      "job_running": true,
+      "datanodes": 3,
+      "under_replicated": 0,
+      "missing_replicas": 0,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 49.8,
+      "map_progress": 30,
+      "job_running": true,
+      "datanodes": 3,
+      "under_replicated": 0,
+      "missing_replicas": 0,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 55.5,
+      "map_progress": 30,
+      "job_running": true,
+      "datanodes": 3,
+      "under_replicated": 0,
+      "missing_replicas": 0,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 61.1,
+      "map_progress": 22,
+      "job_running": true,
+      "datanodes": 3,
+      "under_replicated": 0,
+      "missing_replicas": 0,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 66.7,
+      "map_progress": 22,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 39,
+      "missing_replicas": 39,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 72.2,
+      "map_progress": 22,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 39,
+      "missing_replicas": 39,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 77.9,
+      "map_progress": 24,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 39,
+      "missing_replicas": 39,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 83.4,
+      "map_progress": 24,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 39,
+      "missing_replicas": 39,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 89.0,
+      "map_progress": 24,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 39,
+      "missing_replicas": 39,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 94.6,
+      "map_progress": 24,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 39,
+      "missing_replicas": 39,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 100.5,
+      "map_progress": 29,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 39,
+      "missing_replicas": 39,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 106.4,
+      "map_progress": 35,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 39,
+      "missing_replicas": 39,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 112.2,
+      "map_progress": 40,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 39,
+      "missing_replicas": 39,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 117.9,
+      "map_progress": 43,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 39,
+      "missing_replicas": 39,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 123.8,
+      "map_progress": 48,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 39,
+      "missing_replicas": 39,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 129.6,
+      "map_progress": 52,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 39,
+      "missing_replicas": 39,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 135.6,
+      "map_progress": 57,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 39,
+      "missing_replicas": 39,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 141.8,
+      "map_progress": 62,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 39,
+      "missing_replicas": 39,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 147.6,
+      "map_progress": 67,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 31,
+      "missing_replicas": 31,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 153.6,
+      "map_progress": 71,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 23,
+      "missing_replicas": 23,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 159.4,
+      "map_progress": 76,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 15,
+      "missing_replicas": 15,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 165.5,
+      "map_progress": 81,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 7,
+      "missing_replicas": 7,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 171.5,
+      "map_progress": 86,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 0,
+      "missing_replicas": 0,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 177.2,
+      "map_progress": 90,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 0,
+      "missing_replicas": 0,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 183.0,
+      "map_progress": 95,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 0,
+      "missing_replicas": 0,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 188.6,
+      "map_progress": 100,
+      "job_running": true,
+      "datanodes": 2,
+      "under_replicated": 0,
+      "missing_replicas": 0,
+      "status": "HEALTHY"
+    },
+    {
+      "t": 194.1,
+      "map_progress": 100,
+      "job_running": false,
+      "datanodes": 2,
+      "under_replicated": 0,
+      "missing_replicas": 0,
+      "status": "HEALTHY"
+    }
+  ],
+  "fsck_before": {
+    "status": "HEALTHY",
+    "total_size_bytes": 8453478555,
+    "total_blocks": 63,
+    "minimally_replicated": 63,
+    "under_replicated": 0,
+    "over_replicated": 0,
+    "missing_replicas": 0,
+    "default_replication": 2,
+    "average_replication": 2.0,
+    "datanodes": 3,
+    "replicas_per_datanode": {
+      "172.20.0.5": 43,
+      "172.20.0.8": 44,
+      "172.20.0.9": 39
+    }
+  },
+  "am_host": "nm2",
+  "victim": "nm3 + dn3",
+  "killed_at_s": 30.4,
+  "map_progress_at_kill": 27,
+  "fsck_after_death": {
+    "status": "HEALTHY",
+    "total_size_bytes": 8453478555,
+    "total_blocks": 63,
+    "minimally_replicated": 63,
+    "under_replicated": 39,
+    "over_replicated": 0,
+    "missing_replicas": 39,
+    "default_replication": 2,
+    "average_replication": 1.3809524,
+    "datanodes": 2,
+    "replicas_per_datanode": {
+      "172.20.0.5": 43,
+      "172.20.0.8": 44
+    }
+  },
+  "fsck_after_rereplication": {
+    "status": "HEALTHY",
+    "total_size_bytes": 8453478555,
+    "total_blocks": 63,
+    "minimally_replicated": 63,
+    "under_replicated": 0,
+    "over_replicated": 0,
+    "missing_replicas": 0,
+    "default_replication": 2,
+    "average_replication": 2.0,
+    "datanodes": 2,
+    "replicas_per_datanode": {
+      "172.20.0.5": 63,
+      "172.20.0.8": 63
+    }
+  },
+  "job_exit_code": 0,
+  "job": {
+    "launched_maps": 69,
+    "launched_reduces": 1,
+    "failed_maps": 0,
+    "killed_maps": 6,
+    "map_input_records": 11787,
+    "map_output_records": 35958,
+    "map_output_bytes": 1143699,
+    "combine_input_records": 35958,
+    "combine_output_records": 966,
+    "reduce_shuffle_bytes": 38810,
+    "reduce_input_records": 966,
+    "reduce_output_records": 603,
+    "map_task_ms": 313301,
+    "reduce_task_ms": 159860,
+    "cpu_ms": 64340,
+    "hdfs_bytes_read": 8477171078,
+    "elapsed_s": 187.31,
+    "experiment": "failure",
+    "job": "stats",
+    "set": "full",
+    "tag": "failure",
+    "run": 0,
+    "combiner": 1
+  },
+  "detected_after_kill_s": 36.3,
+  "rereplicated_after_kill_s": 141.1,
+  "task_attempt_failures": [],
+  "nodes_after": [
+    "         Node-Id\t     Node-State\tNode-Http-Address\tNumber-of-Running-Containers",
+    "       nm1:41365\t        RUNNING\t         nm1:8042\t                           0",
+    "       nm2:37451\t        RUNNING\t         nm2:8042\t                           0",
+    "       nm3:41725\t           LOST\t         nm3:8042\t                           0"
+  ],
+  "result_correct": true,
+  "check_output": "PASS hadoop on full: stats, LUT, 11787 image checksums and 600 per-class sums match the reference exactly",
+  "fsck_after_rejoin": {
+    "status": "HEALTHY",
+    "total_size_bytes": 8453478555,
+    "total_blocks": 63,
+    "minimally_replicated": 63,
+    "under_replicated": 0,
+    "over_replicated": 0,
+    "missing_replicas": 0,
+    "default_replication": 2,
+    "average_replication": 2.0,
+    "datanodes": 3,
+    "replicas_per_datanode": {
+      "172.20.0.4": 39,
+      "172.20.0.5": 63,
+      "172.20.0.8": 24
+    }
+  }
+}

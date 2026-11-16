@@ -411,7 +411,7 @@ total communication time.
 ### 8.1 Text format
 
 ```
-image_id \t class_id \t is_train \t w \t h \t bx,by,bw,bh \t base64(raw HWC uint8)
+image_id \t class_id \t is_train \t w \t h \t bx \t by \t bw \t bh \t base64(raw HWC uint8)
 ```
 
 Lines are ≈ 1 MB each (base64 adds ~33%). The size expansion vs binary is reported.
@@ -420,8 +420,8 @@ This file is produced in Phase 1 preprocessing (§6.1, step 8).
 ### 8.2 Job 1: Channel statistics (the core job)
 
 - **Mapper:** parse → crop → resize (via `src/common`) → for training images emit
-  `channel \t n,S1,S2` (3 lines per image, exact integers). Optionally also
-  `class_id:channel \t ...` for the per-class analysis.
+  `all:<channel> \t n,S1,S2` and `cls<class>:<channel> \t n,S1,S2` (6 lines per image,
+  exact integers; 603 keys in total).
 - **Combiner / reducer:** `Stats::merge` (integer addition), so the combiner is trivially correct.
 - **Local test:** `cat sample.txt | ./mapper | sort | ./reducer`. The output must match
   `results/reference/<set>/stats.json` exactly.
@@ -440,7 +440,7 @@ This file is produced in Phase 1 preprocessing (§6.1, step 8).
 | **HDFS inspection**  | `hdfs fsck /cub -files -blocks -locations`, NameNode UI; change replication 1 → 3 → 2 and observe                                                                                                                                          |
 | **Comparison table** | Fill the Hadoop column of §5.5. Explain JVM/container startup and shuffle overhead on small inputs, and estimate the size or cluster size where Hadoop would win                                                                           |
 | **Combiner**         | With vs without: map output records, combine in/out records, shuffle bytes. Expected: 3 × N_images → about 3 × N_map_tasks records                                                                                                         |
-| **Failure**          | Start the aug ×4 job, `docker stop` a DataNode/NodeManager, record failed/retried attempts, check the result is still correct, run `hdfs fsck` before/after re-replication, and compare with the partial-failure discussion from Lecture 1 |
+| **Failure**          | Start Job 1 on the full set (81 s, 63 map tasks: long enough, no augmented set needed), `docker stop` a DataNode/NodeManager, record failed/retried attempts, check the result is still correct, run `hdfs fsck` before/after re-replication, and compare with the partial-failure discussion from Lecture 1 |
 | **Consistency**      | HDFS write-once/read-many, single-writer leases, stale replicas, the cost of stronger guarantees (Lab 8)                                                                                                                                   |
 | **Bonus**            | RPC service from §7.5 serving Hadoop results                                                                                                                                                                                               |
 

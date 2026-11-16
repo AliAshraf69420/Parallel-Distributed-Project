@@ -7,6 +7,8 @@ Compares <run>/stats.json and <run>/checksums.csv with results/reference/<set>/:
   * lut_f32_hex       identical float32 bits
   * per-image CRCs    identical; a crc_resized mismatch means the resize differs,
                       a crc_normalized-only mismatch means stats/LUT/normalize differ
+  * per_class.csv     (Hadoop runs) per-class n, S1, S2 identical to the reference
+A run without checksums.csv (statistics job only) is checked on the statistics alone.
 Exit status 0 = PASS, 1 = FAIL.
 
 Usage
@@ -38,7 +40,7 @@ def main() -> int:
     args = ap.parse_args()
 
     ref_dir = args.reference / args.set
-    for p in (ref_dir / "stats.json", args.run / "stats.json", args.run / "checksums.csv"):
+    for p in (ref_dir / "stats.json", args.run / "stats.json"):
         if not p.is_file():
             print(f"FAIL: {p} not found", file=sys.stderr)
             return 1
@@ -54,7 +56,9 @@ def main() -> int:
             else:
                 problems.append(f"{key}: expected {ref.get(key)}, got {got.get(key)}")
 
-    rc, gc = load_crcs(ref_dir / "checksums.csv"), load_crcs(args.run / "checksums.csv")
+    has_crcs = (args.run / "checksums.csv").is_file()
+    rc = load_crcs(ref_dir / "checksums.csv") if has_crcs else {}
+    gc = load_crcs(args.run / "checksums.csv") if has_crcs else {}
     if rc.keys() != gc.keys():
         problems.append(f"image ids differ: {len(rc.keys() - gc.keys())} missing, "
                         f"{len(gc.keys() - rc.keys())} unexpected")
@@ -66,13 +70,32 @@ def main() -> int:
     if bad_norm:
         problems.append(f"normalize differs for {len(bad_norm)} images (first: {bad_norm[:5]})")
 
+    per_class = args.run / "per_class.csv"
+    n_class_keys = 0
+    if per_class.is_file():
+        want = {(int(k), c): (v["n"], v["S1"][c], v["S2"][c])
+                for k, v in ref["per_class_train"].items() for c in range(3)}
+        with open(per_class, newline="") as f:
+            have = {(int(r["class_id"]), int(r["channel"])): (int(r["n"]), int(r["S1"]), int(r["S2"]))
+                    for r in csv.DictReader(f)}
+        n_class_keys = len(have)
+        if want != have:
+            wrong = sorted(k for k in want.keys() | have.keys() if want.get(k) != have.get(k))
+            problems.append(f"per-class sums differ for {len(wrong)} (class, channel) keys "
+                            f"(first: {wrong[:5]})")
+
     label = f"{got.get('version', '?')} on {args.set}"
     if problems:
         print(f"FAIL {label}:")
         for p in problems:
             print(f"  - {p}")
         return 1
-    print(f"PASS {label}: stats, LUT and {len(common)} image checksums match the reference exactly")
+    parts = ["stats", "LUT"]
+    if has_crcs:
+        parts.append(f"{len(common)} image checksums")
+    if n_class_keys:
+        parts.append(f"{n_class_keys} per-class sums")
+    print(f"PASS {label}: {', '.join(parts[:-1])} and {parts[-1]} match the reference exactly")
     return 0
 
 

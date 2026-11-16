@@ -1,0 +1,135 @@
+packageJobJar: [/tmp/hadoop-unjar9044980012144771118/] [] /tmp/streamjob4046232222336214167.jar tmpDir=null
+2026-11-16 12:37:58 INFO  DefaultNoHARMFailoverProxyProvider:64 - Connecting to ResourceManager at resourcemanager/172.20.0.3:8032
+2026-11-16 12:37:58 INFO  DefaultNoHARMFailoverProxyProvider:64 - Connecting to ResourceManager at resourcemanager/172.20.0.3:8032
+2026-11-16 12:37:59 INFO  JobResourceUploader:907 - Disabling Erasure Coding for path: /tmp/hadoop-yarn/staging/hadoop/.staging/job_1794831237179_0027
+2026-11-16 12:37:59 INFO  FileInputFormat:267 - Total input files to process : 1
+2026-11-16 12:37:59 INFO  JobSubmitter:203 - number of splits:63
+2026-11-16 12:37:59 INFO  JobSubmitter:299 - Submitting tokens for job: job_1794831237179_0027
+2026-11-16 12:37:59 INFO  JobSubmitter:300 - Executing with tokens: []
+2026-11-16 12:37:59 INFO  Configuration:2898 - resource-types.xml not found
+2026-11-16 12:37:59 INFO  ResourceUtils:476 - Unable to find 'resource-types.xml'.
+2026-11-16 12:37:59 INFO  YarnClientImpl:356 - Submitted application application_1794831237179_0027
+2026-11-16 12:37:59 INFO  Job:1681 - The url to track the job: http://resourcemanager:8088/proxy/application_1794831237179_0027/
+2026-11-16 12:37:59 INFO  Job:1726 - Running job: job_1794831237179_0027
+2026-11-16 12:38:04 INFO  Job:1747 - Job job_1794831237179_0027 running in uber mode : false
+2026-11-16 12:38:04 INFO  Job:1754 -  map 0% reduce 0%
+2026-11-16 12:38:09 INFO  Job:1754 -  map 2% reduce 0%
+2026-11-16 12:38:10 INFO  Job:1754 -  map 3% reduce 0%
+2026-11-16 12:38:11 INFO  Job:1754 -  map 5% reduce 0%
+2026-11-16 12:38:12 INFO  Job:1754 -  map 6% reduce 0%
+2026-11-16 12:38:15 INFO  Job:1754 -  map 8% reduce 0%
+2026-11-16 12:38:17 INFO  Job:1754 -  map 11% reduce 0%
+2026-11-16 12:38:19 INFO  Job:1754 -  map 13% reduce 0%
+2026-11-16 12:38:20 INFO  Job:1754 -  map 16% reduce 0%
+2026-11-16 12:38:21 INFO  Job:1754 -  map 17% reduce 0%
+2026-11-16 12:38:24 INFO  Job:1754 -  map 22% reduce 0%
+2026-11-16 12:38:26 INFO  Job:1754 -  map 22% reduce 7%
+2026-11-16 12:38:27 INFO  Job:1754 -  map 24% reduce 7%
+2026-11-16 12:38:28 INFO  Job:1754 -  map 27% reduce 8%
+2026-11-16 12:38:29 INFO  Job:1754 -  map 29% reduce 9%
+2026-11-16 12:38:31 INFO  Job:1754 -  map 30% reduce 10%
+2026-11-16 12:38:33 INFO  Job:1754 -  map 33% reduce 10%
+2026-11-16 12:38:34 INFO  Job:1754 -  map 33% reduce 11%
+2026-11-16 12:38:35 INFO  Job:1754 -  map 35% reduce 11%
+2026-11-16 12:38:36 INFO  Job:1754 -  map 38% reduce 12%
+2026-11-16 12:38:37 INFO  Job:1754 -  map 38% reduce 13%
+2026-11-16 12:38:38 INFO  Job:1754 -  map 41% reduce 13%
+2026-11-16 12:38:39 INFO  Job:1754 -  map 43% reduce 14%
+2026-11-16 12:38:41 INFO  Job:1754 -  map 46% reduce 14%
+2026-11-16 12:38:42 INFO  Job:1754 -  map 49% reduce 15%
+2026-11-16 12:38:43 INFO  Job:1754 -  map 49% reduce 16%
+2026-11-16 12:38:45 INFO  Job:1754 -  map 54% reduce 16%
+2026-11-16 12:38:46 INFO  Job:1754 -  map 54% reduce 18%
+2026-11-16 12:38:48 INFO  Job:1754 -  map 59% reduce 18%
+2026-11-16 12:38:49 INFO  Job:1754 -  map 59% reduce 20%
+2026-11-16 12:38:51 INFO  Job:1754 -  map 63% reduce 20%
+2026-11-16 12:38:52 INFO  Job:1754 -  map 63% reduce 21%
+2026-11-16 12:38:53 INFO  Job:1754 -  map 67% reduce 21%
+2026-11-16 12:38:55 INFO  Job:1754 -  map 67% reduce 22%
+2026-11-16 12:38:56 INFO  Job:1754 -  map 68% reduce 22%
+2026-11-16 12:38:57 INFO  Job:1754 -  map 71% reduce 23%
+2026-11-16 12:38:58 INFO  Job:1754 -  map 71% reduce 24%
+2026-11-16 12:38:59 INFO  Job:1754 -  map 73% reduce 24%
+2026-11-16 12:39:00 INFO  Job:1754 -  map 76% reduce 24%
+2026-11-16 12:39:01 INFO  Job:1754 -  map 76% reduce 25%
+2026-11-16 12:39:02 INFO  Job:1754 -  map 79% reduce 25%
+2026-11-16 12:39:03 INFO  Job:1754 -  map 79% reduce 26%
+2026-11-16 12:39:05 INFO  Job:1754 -  map 84% reduce 26%
+2026-11-16 12:39:06 INFO  Job:1754 -  map 84% reduce 28%
+2026-11-16 12:39:08 INFO  Job:1754 -  map 89% reduce 28%
+2026-11-16 12:39:09 INFO  Job:1754 -  map 89% reduce 30%
+2026-11-16 12:39:10 INFO  Job:1754 -  map 90% reduce 30%
+2026-11-16 12:39:12 INFO  Job:1754 -  map 94% reduce 30%
+2026-11-16 12:39:13 INFO  Job:1754 -  map 94% reduce 31%
+2026-11-16 12:39:14 INFO  Job:1754 -  map 95% reduce 31%
+2026-11-16 12:39:15 INFO  Job:1754 -  map 98% reduce 32%
+2026-11-16 12:39:16 INFO  Job:1754 -  map 100% reduce 100%
+2026-11-16 12:39:16 INFO  Job:1765 - Job job_1794831237179_0027 completed successfully
+2026-11-16 12:39:16 INFO  Job:1772 - Counters: 58
+	File System Counters
+		FILE: Number of bytes read=1215621
+		FILE: Number of bytes written=22492284
+		FILE: Number of read operations=0
+		FILE: Number of large read operations=0
+		FILE: Number of write operations=0
+		HDFS: Number of bytes read=8477171078
+		HDFS: Number of bytes written=23525
+		HDFS: Number of read operations=194
+		HDFS: Number of large read operations=0
+		HDFS: Number of write operations=2
+		HDFS: Number of bytes read erasure-coded=0
+	Job Counters 
+		Launched map tasks=63
+		Launched reduce tasks=1
+		Rack-local map tasks=63
+		Total time spent by all maps in occupied slots (ms)=478311
+		Total time spent by all reduces in occupied slots (ms)=160086
+		Total time spent by all map tasks (ms)=159437
+		Total time spent by all reduce tasks (ms)=53362
+		Total vcore-milliseconds taken by all map tasks=159437
+		Total vcore-milliseconds taken by all reduce tasks=53362
+		Total megabyte-milliseconds taken by all map tasks=122447616
+		Total megabyte-milliseconds taken by all reduce tasks=40982016
+	Map-Reduce Framework
+		Map input records=11787
+		Map output records=35958
+		Map output bytes=1143699
+		Map output materialized bytes=1215993
+		Input split bytes=5355
+		Combine input records=0
+		Combine output records=0
+		Reduce input groups=603
+		Reduce shuffle bytes=1215993
+		Reduce input records=35958
+		Reduce output records=603
+		Spilled Records=71916
+		Shuffled Maps =63
+		Failed Shuffles=0
+		Merged Map outputs=63
+		GC time elapsed (ms)=3012
+		CPU time spent (ms)=64090
+		Physical memory (bytes) snapshot=17740861440
+		Virtual memory (bytes) snapshot=142037860352
+		Total committed heap usage (bytes)=13161201664
+		Peak Map Physical memory (bytes)=292839424
+		Peak Map Virtual memory (bytes)=2221707264
+		Peak Reduce Physical memory (bytes)=246239232
+		Peak Reduce Virtual memory (bytes)=2226716672
+	CUB
+		images_read=11787
+		sum_records_in=35958
+		sum_records_out=603
+		train_images_resized=5993
+	Shuffle Errors
+		BAD_ID=0
+		CONNECTION=0
+		IO_ERROR=0
+		WRONG_LENGTH=0
+		WRONG_MAP=0
+		WRONG_REDUCE=0
+	File Input Format Counters 
+		Bytes Read=8477165723
+	File Output Format Counters 
+		Bytes Written=23525
+2026-11-16 12:39:16 INFO  StreamJob:1029 - Output directory: /out/stats-full
+elapsed_s=79.242922063

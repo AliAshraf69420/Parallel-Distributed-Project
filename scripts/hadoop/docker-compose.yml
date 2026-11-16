@@ -1,0 +1,39 @@
+# Hadoop 3.4.1 test cluster on one machine: 1 NameNode, 1 ResourceManager, 3 DataNodes and
+# 3 NodeManagers, each in its own container, so a DataNode or a NodeManager can be stopped
+# on its own for the failure experiment. The repository is mounted at /work everywhere
+# (the image's `hadoop` user has uid 1000; with another host uid, results may need chown).
+#
+#   scripts/hadoop/cluster.sh up | down | status | sh | exec CMD...
+#   NameNode UI: http://localhost:9870   ResourceManager UI: http://localhost:8088
+x-hadoop: &hadoop
+  image: apache/hadoop:3.4.1
+  env_file: [./config]
+  volumes: ["../..:/work"]
+  networks: [hadoopnet]
+  init: true
+x-heap: &heap
+  HADOOP_HEAPSIZE_MAX: 384m
+
+services:
+  namenode:
+    <<: *hadoop
+    hostname: namenode
+    command: ["hdfs", "namenode"]
+    ports: ["9870:9870"]
+    environment: { <<: *heap, ENSURE_NAMENODE_DIR: /tmp/hadoop-hadoop/dfs/name }
+  resourcemanager:
+    <<: *hadoop
+    hostname: resourcemanager
+    command: ["yarn", "resourcemanager"]
+    ports: ["8088:8088"]
+    environment: { <<: *heap }
+  dn1: { <<: *hadoop, hostname: dn1, command: ["hdfs", "datanode"], environment: { <<: *heap } }
+  dn2: { <<: *hadoop, hostname: dn2, command: ["hdfs", "datanode"], environment: { <<: *heap } }
+  dn3: { <<: *hadoop, hostname: dn3, command: ["hdfs", "datanode"], environment: { <<: *heap } }
+  nm1: { <<: *hadoop, hostname: nm1, command: ["yarn", "nodemanager"], environment: { <<: *heap } }
+  nm2: { <<: *hadoop, hostname: nm2, command: ["yarn", "nodemanager"], environment: { <<: *heap } }
+  nm3: { <<: *hadoop, hostname: nm3, command: ["yarn", "nodemanager"], environment: { <<: *heap } }
+
+networks:
+  hadoopnet:
+    driver: bridge

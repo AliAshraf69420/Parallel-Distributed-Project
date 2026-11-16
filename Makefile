@@ -17,13 +17,22 @@ MPICXX   ?= mpicxx
 BUILD      := build
 COMMON_SRC := $(wildcard src/common/*.cpp)
 COMMON_OBJ := $(COMMON_SRC:src/%.cpp=$(BUILD)/obj/%.o)
-BINARIES   := $(BUILD)/seq $(BUILD)/omp $(BUILD)/threads $(BUILD)/memexp
+BINARIES   := $(BUILD)/seq $(BUILD)/omp $(BUILD)/threads $(BUILD)/memexp \
+              $(BUILD)/hadoop/mapper_stats $(BUILD)/hadoop/reducer_stats \
+              $(BUILD)/hadoop/mapper_normalize $(BUILD)/hadoop_finalize \
+              $(BUILD)/rpc_server $(BUILD)/rpc_client
+# Bonus: the CUDA version is built only where nvcc is installed.
+NVCC := $(firstword $(shell command -v nvcc 2>/dev/null) $(wildcard /opt/cuda/bin/nvcc))
+ifneq ($(NVCC),)
+BINARIES   += $(BUILD)/cuda
+endif
 # Phase 2 binaries are built only where an MPI compiler is installed.
 ifneq ($(shell command -v $(MPICXX) 2>/dev/null),)
 BINARIES   += $(BUILD)/mpi $(BUILD)/pingpong
 endif
 
 .PHONY: all data test check report clean
+.SECONDARY:
 all: $(BINARIES)
 
 $(BUILD)/obj/%.o: src/%.cpp
@@ -48,6 +57,26 @@ $(BUILD)/mpi: $(BUILD)/obj/mpi/main.o $(COMMON_OBJ)
 $(BUILD)/pingpong: $(BUILD)/obj/mpi/pingpong.o
 	$(MPICXX) $(CXXFLAGS) $^ -o $@
 
+# Phase 3: Hadoop Streaming programs. Statically linked, because they run inside the Hadoop
+# containers, whose C/C++ runtime differs from the host's.
+$(BUILD)/hadoop/%: $(BUILD)/obj/hadoop/%.o $(COMMON_OBJ)
+	@mkdir -p $(@D)
+	$(CXX) $(CXXFLAGS) -static $^ -o $@
+
+$(BUILD)/hadoop_finalize: $(BUILD)/obj/hadoop/finalize.o $(COMMON_OBJ)
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+# Bonus: GPU version. nvcc compiles the .cu file and links the g++-built common objects.
+$(BUILD)/cuda: src/cuda/main.cu $(COMMON_OBJ) src/common/app.hpp src/common/kernels.hpp
+	$(NVCC) -O3 -std=c++20 -Xcompiler -fopenmp src/cuda/main.cu $(COMMON_OBJ) -o $@ -lgomp
+
+# Bonus: TCP query service in front of the results.
+$(BUILD)/rpc_server: $(BUILD)/obj/rpc/server.o $(COMMON_OBJ)
+	$(CXX) $(CXXFLAGS) -pthread $^ -o $@
+
+$(BUILD)/rpc_client: $(BUILD)/obj/rpc/client.o
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
 $(BUILD)/seq: $(BUILD)/obj/seq/main.o $(COMMON_OBJ)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
@@ -70,6 +99,7 @@ data:
 	$(PYTHON) preprocessing/reference.py
 	$(PYTHON) preprocessing/make_subsets.py --sizes 700 1400 2800 5600 --reports results/preprocessing/weak
 	$(PYTHON) preprocessing/reference.py --sets 700MB 1400MB 2800MB 5600MB
+	$(PYTHON) preprocessing/to_text.py
 
 # ---- correctness ---------------------------------------------------------------------------
 V   ?= seq
@@ -88,13 +118,20 @@ ifneq ($(shell command -v $(MPICXX) 2>/dev/null),)
 	mpirun -n 4 $(BUILD)/mpi --set 100MB
 	$(PYTHON) tests/check.py --set 100MB --run results/runs/mpi/100MB
 endif
+ifneq ($(NVCC),)
+	$(BUILD)/cuda --set 100MB
+	$(PYTHON) tests/check.py --set 100MB --run results/runs/cuda/100MB
+endif
+	@if [ -f data/processed/text/100MB.txt ]; then PYTHON=$(PYTHON) scripts/hadoop/local_test.sh 100MB; \
+	 else echo "skipping the MapReduce pipe test: run python preprocessing/to_text.py"; fi
 
-# ---- reports (LaTeX, needs latexmk) -> report.pdf (Phase 1) and report_phase2.pdf at the root ----
+# ---- reports (LaTeX, needs latexmk) -> report.pdf (Phase 1), report_phase2.pdf, report_final.pdf ----
 report:
-	cd report && latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex phase2.tex
+	cd report && latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex phase2.tex final.tex
 	cp report/main.pdf report.pdf
 	cp report/phase2.pdf report_phase2.pdf
+	cp report/final.pdf report_final.pdf
 
 clean:
 	rm -rf $(BUILD)
-	cd report && latexmk -C main.tex phase2.tex
+	cd report && latexmk -C main.tex phase2.tex final.tex

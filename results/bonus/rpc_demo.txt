@@ -1,0 +1,48 @@
+
+== 1. Healthy server: every request is answered
+rpc_server: 11787 images, 200 classes from results/runs/hadoop/full; listening on 127.0.0.1:4010
+$ build/rpc_client --port 4010 PING
+OK pong    [0.24 ms]
+  (exit status 0)
+$ build/rpc_client --port 4010 STATS
+OK n=300704768 mean=0.471774,0.470920,0.405665 std=0.235584,0.231691,0.258334    [0.11 ms]
+  (exit status 0)
+$ build/rpc_client --port 4010 CLASS 0
+OK class=0 n=1505280 mean=0.510268,0.523092,0.538826 std=0.269202,0.253372,0.264637    [0.46 ms]
+  (exit status 0)
+$ build/rpc_client --port 4010 IMAGE 1
+OK image=1 class=0 split=test crc_resized=a3984ca9 crc_normalized=820ebb30    [0.28 ms]
+  (exit status 0)
+$ build/rpc_client --port 4010 IMAGE 999999
+ERR no image 999999 in this set    [0.11 ms]
+  (exit status 1)
+
+== 2. Slow server (2 s per reply), client timeout 500 ms
+rpc_server: 11787 images, 200 classes from results/runs/hadoop/full; listening on 127.0.0.1:4010 (delayed replies)
+$ build/rpc_client --port 4010 --timeout-ms 500 STATS
+TIMEOUT after 500 ms (request sent, no reply): the server may be slow, hung or crashed, or the message was lost; the client cannot tell which
+  (exit status 3)
+
+==    the same slow server with a 3 s timeout: it was alive all along
+$ build/rpc_client --port 4010 --timeout-ms 3000 STATS
+OK n=300704768 mean=0.471774,0.470920,0.405665 std=0.235584,0.231691,0.258334    [2000.37 ms]
+  (exit status 0)
+
+== 3. Hung server (accepts the request, never replies), client timeout 500 ms, 1 retry
+rpc_server: 11787 images, 200 classes from results/runs/hadoop/full; listening on 127.0.0.1:4010 (hang mode)
+$ build/rpc_client --port 4010 --timeout-ms 500 --retries 1 STATS
+TIMEOUT after 500 ms (request sent, no reply): the server may be slow, hung or crashed, or the message was lost; the client cannot tell which; retrying (the request is idempotent)
+TIMEOUT after 500 ms (request sent, no reply): the server may be slow, hung or crashed, or the message was lost; the client cannot tell which
+  (exit status 3)
+
+== 4. Server process killed: the operating system refuses the connection
+$ build/rpc_client --port 4010 --timeout-ms 500 STATS
+FAILED (connect: Connection refused)    [0.10 ms]
+  (exit status 2)
+
+Cases 2 and 3 print the same thing. From the client's side a slow server and a hung (or
+crashed, or unreachable) one are indistinguishable: both are "no reply before the timeout".
+A longer timeout only moves the line; it never tells the two apart. Case 4 is the lucky
+exception: the process died but its machine is still up, so the kernel answers for it with
+a connection reset. If the whole machine or the network had failed, there would be no such
+answer and the client would see a timeout again.

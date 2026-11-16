@@ -1,0 +1,32 @@
+{
+  "100MB": {
+    "set": "100MB",
+    "file": "data/processed/text/100MB.txt",
+    "lines": 195,
+    "text_bytes": 140326630,
+    "pixel_bytes": 105239931,
+    "expansion": 1.3334,
+    "mean_line_bytes": 719624,
+    "seconds": 0.63
+  },
+  "500MB": {
+    "set": "500MB",
+    "file": "data/processed/text/500MB.txt",
+    "lines": 971,
+    "text_bytes": 699837174,
+    "pixel_bytes": 524852928,
+    "expansion": 1.3334,
+    "mean_line_bytes": 720739,
+    "seconds": 2.61
+  },
+  "full": {
+    "set": "full",
+    "file": "data/processed/text/full.txt",
+    "lines": 11787,
+    "text_bytes": 8453478555,
+    "pixel_bytes": 6339805845,
+    "expansion": 1.3334,
+    "mean_line_bytes": 717187,
+    "seconds": 39.04
+  }
+}

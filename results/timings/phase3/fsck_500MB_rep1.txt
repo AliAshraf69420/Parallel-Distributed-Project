@@ -1,0 +1,49 @@
+FSCK started by hadoop (auth:SIMPLE) from /172.20.0.6 for path /cub/500MB.txt at Mon Nov 16 12:22:54 UTC 2026
+
+/cub/500MB.txt 699837174 bytes, replicated: replication=1, 6 block(s):  OK
+0. BP-1791176345-172.20.0.6-1794831231747:blk_1073741947_1123 len=134217728 Live_repl=1  [DatanodeInfoWithStorage[172.20.0.5:9866,DS-140d24d4-2e16-47ce-b6a3-266bcda927b6,DISK]]
+1. BP-1791176345-172.20.0.6-1794831231747:blk_1073741948_1124 len=134217728 Live_repl=1  [DatanodeInfoWithStorage[172.20.0.5:9866,DS-140d24d4-2e16-47ce-b6a3-266bcda927b6,DISK]]
+2. BP-1791176345-172.20.0.6-1794831231747:blk_1073741949_1125 len=134217728 Live_repl=1  [DatanodeInfoWithStorage[172.20.0.5:9866,DS-140d24d4-2e16-47ce-b6a3-266bcda927b6,DISK]]
+3. BP-1791176345-172.20.0.6-1794831231747:blk_1073741950_1126 len=134217728 Live_repl=1  [DatanodeInfoWithStorage[172.20.0.5:9866,DS-140d24d4-2e16-47ce-b6a3-266bcda927b6,DISK]]
+4. BP-1791176345-172.20.0.6-1794831231747:blk_1073741951_1127 len=134217728 Live_repl=1  [DatanodeInfoWithStorage[172.20.0.5:9866,DS-140d24d4-2e16-47ce-b6a3-266bcda927b6,DISK]]
+5. BP-1791176345-172.20.0.6-1794831231747:blk_1073741952_1128 len=28748534 Live_repl=1  [DatanodeInfoWithStorage[172.20.0.5:9866,DS-140d24d4-2e16-47ce-b6a3-266bcda927b6,DISK]]
+
+
+Status: HEALTHY
+ Number of data-nodes:	3
+ Number of racks:		1
+ Total dirs:			0
+ Total symlinks:		0
+
+Replicated Blocks:
+ Total size:	699837174 B
+ Total files:	1
+ Total blocks (validated):	6 (avg. block size 116639529 B)
+ Minimally replicated blocks:	6 (100.0 %)
+ Over-replicated blocks:	0 (0.0 %)
+ Under-replicated blocks:	0 (0.0 %)
+ Mis-replicated blocks:		0 (0.0 %)
+ Default replication factor:	2
+ Average block replication:	1.0
+ Missing blocks:		0
+ Corrupt blocks:		0
+ Missing replicas:		0 (0.0 %)
+ Blocks queued for replication:	0
+
+Erasure Coded Block Groups:
+ Total size:	0 B
+ Total files:	0
+ Total block groups (validated):	0
+ Minimally erasure-coded block groups:	0
+ Over-erasure-coded block groups:	0
+ Under-erasure-coded block groups:	0
+ Unsatisfactory placement block groups:	0
+ Average block group size:	0.0
+ Missing block groups:		0
+ Corrupt block groups:		0
+ Missing internal blocks:	0
+ Blocks queued for replication:	0
+FSCK ended at Mon Nov 16 12:22:54 UTC 2026 in 1 milliseconds
+
+
+The filesystem under path '/cub/500MB.txt' is HEALTHY

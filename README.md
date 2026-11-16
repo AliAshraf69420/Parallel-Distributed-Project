@@ -2,9 +2,11 @@
 
 SW401 (Parallel and Distributed Systems) course project. It turns the CUB-200-2011
 bird images into bounding-box-cropped, 224×224, per-channel-normalized tensors, and
-implements that same computation as sequential C++, OpenMP, C++ threads, MPI and
-Hadoop Streaming. Every implementation must match one frozen reference **bit for bit**.
+implements that same computation as sequential C++, OpenMP, C++ threads, MPI,
+Hadoop Streaming and CUDA. Every implementation must match one frozen reference **bit for bit**.
 
+- Reports: [report.pdf](report.pdf) (Phase 1), [report_phase2.pdf](report_phase2.pdf), [report_final.pdf](report_final.pdf)
+- Measured results: `results/timings/phase1_summary.md`, `results/timings/phase2/summary.md`, `results/timings/phase3/summary.md`
 - Full plan and design: [docs/PLAN.md](docs/PLAN.md)
 - Dataset and binary format: [data/README.md](data/README.md), [preprocessing/cubfmt.py](preprocessing/cubfmt.py)
 - Exact spec of the core computation: [preprocessing/reference.py](preprocessing/reference.py)
@@ -16,8 +18,10 @@ Hadoop Streaming. Every implementation must match one frozen reference **bit for
 | Phase 1 benchmarks, plots, memory-hierarchy experiments | Done |
 | Phase 1 report (`report.pdf`) | Done |
 | Phase 2: MPI, Docker cluster, benchmarks, report (`report_phase2.pdf`) | Done |
-| Phase 1 and Phase 2 videos | To do |
-| Phase 3: Hadoop Streaming | To do |
+| Phase 3: Hadoop Streaming jobs, Docker Hadoop cluster, experiments | Done |
+| Bonuses: hybrid MPI + OpenMP, CUDA, RPC query service, second MapReduce job | Done |
+| Final report (`report_final.pdf`) | Done |
+| Videos (Phase 1, Phase 2) and final presentation | To do |
 
 ---
 
@@ -34,9 +38,11 @@ Run every command **from the repository root**.
 | perf | Phase 1 cache experiment | `pacman -S perf` / `apt install linux-tools-$(uname -r)` |
 | OpenMPI | Phase 2 | `pacman -S openmpi` / `apt install openmpi-bin libopenmpi-dev` |
 | Docker (with the compose plugin) | Phase 2 cluster, Phase 3 (Hadoop cluster) | distro package |
+| CUDA toolkit (`nvcc`) and an NVIDIA GPU | bonus: CUDA version | `pacman -S cuda` / NVIDIA's packages |
+| latexmk + TeX Live | rebuilding the reports | `pacman -S texlive` / `apt install texlive-full latexmk` |
 
-Disk: about **28 GB** free (1.1 GB download, 1.2 GB extracted, 5.9 GB predecoded full set,
-0.6 GB subsets, 10.5 GB weak-scaling subsets, plus outputs). RAM: 8 GB or more.
+Disk: about **55 GB** free (1.1 GB download, 1.2 GB extracted, 5.9 GB predecoded full set,
+0.6 GB subsets, 10.5 GB weak-scaling subsets, 8.9 GB Hadoop text sets, 16 GB for HDFS replicas inside Docker, plus outputs). RAM: 8 GB or more.
 
 ### 1. Clone and create the Python environment
 
@@ -72,6 +78,7 @@ Each step reads the previous step's output. Or run all of them with `make data`.
 | 4 | `python preprocessing/reference.py` | `results/reference/{full,100MB,500MB}/{stats.json, checksums.csv}` | ~100 s |
 | 5 | `python preprocessing/make_subsets.py --sizes 700 1400 2800 5600 --reports results/preprocessing/weak` | weak-scaling sets `data/processed/{700,1400,2800,5600}MB/` (p × 700 MiB) | ~20 s |
 | 6 | `python preprocessing/reference.py --sets 700MB 1400MB 2800MB 5600MB` | their references | ~150 s |
+| 7 | `python preprocessing/to_text.py` | Hadoop text sets `data/processed/text/{100MB,500MB,full}.txt` (one image per line, base64 pixels; 8.1 GiB for `full`) | ~45 s |
 
 \* Ryzen 7 5800H (8 cores / 16 threads), NVMe SSD.
 
@@ -87,14 +94,16 @@ Each step reads the previous step's output. Or run all of them with `make data`.
 ### 4. Build the C++ implementations
 
 ```bash
-make            # -> build/{seq,omp,threads,memexp}, plus build/{mpi,pingpong} if mpicxx is installed
+make            # -> build/{seq,omp,threads,memexp}, build/hadoop/*, build/hadoop_finalize, build/rpc_*,
+                #    plus build/{mpi,pingpong} if mpicxx is installed and build/cuda if nvcc is installed
                 # (flags: -O3 -march=native -ffp-contract=off)
 ```
 
 ### 5. Run and verify
 
 ```bash
-make test       # runs seq, omp, threads (and mpi with 4 ranks) on the 100MB set, checking each
+make test       # runs seq, omp, threads, mpi (4 ranks), cuda and the MapReduce programs (through
+                # a local pipe, no Hadoop needed) on the 100MB set, checking each against the reference
 ```
 
 Each run of `build/<version>` writes `stats.json` and `checksums.csv` to
@@ -132,7 +141,7 @@ Close other programs first (the runner warns if the load average is high).
 ```bash
 python scripts/bench/phase1.py       # ~10 min: strong, schedule, weak, per-image times
 python plots/phase1.py               # -> plots/phase1/*.png, results/timings/phase1_summary.md
-make report                          # -> report.pdf, report_phase2.pdf (LaTeX in report/, needs latexmk)
+make report                          # -> report.pdf, report_phase2.pdf, report_final.pdf (LaTeX in report/)
 ```
 
 Every configuration gets one warm-up run plus 3 measured runs (the median is reported), uses
@@ -198,6 +207,71 @@ python scripts/bench/phase2.py       # -> results/timings/phase2/   (--no-cluste
 python plots/phase2.py               # -> plots/phase2/*.png, results/timings/phase2/summary.md
 ```
 
+### 9. Phase 3: Hadoop Streaming
+
+The MapReduce programs can be tested without Hadoop, exactly as Streaming runs them:
+
+```bash
+scripts/hadoop/local_test.sh 100MB     # cat data | mapper | sort | reducer, then checks the result
+```
+
+| Program | Role |
+|---|---|
+| `build/hadoop/mapper_stats` | Job 1 mapper: resize each train image, emit its exact sums under `all:<channel>` and `cls<class>:<channel>` |
+| `build/hadoop/reducer_stats` | Job 1 reducer and combiner: add the values of each key |
+| `build/hadoop/mapper_normalize` | Job 2 (map-only): normalize every image with Job 1's result, emit its two CRCs |
+| `build/hadoop_finalize` | turn both jobs' outputs into `stats.json`, `checksums.csv`, `per_class.csv` for `tests/check.py` |
+
+On the Docker Hadoop cluster (Hadoop 3.4.1: 1 NameNode, 1 ResourceManager, 3 DataNodes, 3 NodeManagers;
+needs about 6 GB of free RAM):
+
+```bash
+scripts/hadoop/cluster.sh up            # start; waits until HDFS and YARN are ready
+scripts/hadoop/job.sh put 100MB         # upload data/processed/text/100MB.txt to HDFS (/cub/)
+scripts/hadoop/job.sh all 100MB         # Job 1 + Job 2 + bit-exact check against the reference
+scripts/hadoop/job.sh stats full --no-combiner     # one job with options (see the script header)
+scripts/hadoop/cluster.sh exec hdfs fsck /cub/100MB.txt -files -blocks -locations
+scripts/hadoop/cluster.sh exec hdfs dfs -setrep -w 3 /cub/100MB.txt
+scripts/hadoop/cluster.sh stop nm3      # failure experiment by hand: stop a NodeManager ...
+scripts/hadoop/cluster.sh stop dn3      # ... and a DataNode while a job runs
+scripts/hadoop/cluster.sh status        # live/dead DataNodes, RUNNING/LOST NodeManagers
+scripts/hadoop/cluster.sh down          # stop everything and delete the HDFS data
+```
+
+Web UIs while the cluster is up: NameNode <http://localhost:9870>, ResourceManager
+<http://localhost:8088>. The cluster configuration is `scripts/hadoop/config`; its failure
+timeouts are shortened from Hadoop's 10-minute defaults to 20-30 s so a failure is detected
+quickly. Each job's full client log, with all counters, is kept in
+`results/timings/phase3/logs/`.
+
+All Phase 3 experiments (about 25 minutes; upload, fsck, replication change, comparison runs,
+combiner, failure) and their tables and plots:
+
+```bash
+python scripts/bench/phase3.py       # -> results/timings/phase3/ (jobs.csv, hdfs.json, failure.json, fsck_*.txt)
+python plots/phase3.py               # -> plots/phase3/*.png, results/timings/phase3/summary.md
+```
+
+### 10. Bonuses
+
+```bash
+# CUDA version (needs nvcc and an NVIDIA GPU); prints where the time goes (stage/upload/kernel/download/host)
+build/cuda --set full -t 8 --preload
+python tests/check.py --set full --run results/runs/cuda/full
+
+# RPC query service in front of the MapReduce results (run `scripts/hadoop/job.sh all full` first)
+build/rpc_server --set full &                 # serves results/runs/hadoop/full on 127.0.0.1:4010
+build/rpc_client STATS
+build/rpc_client CLASS 0
+build/rpc_client --timeout-ms 500 --retries 1 IMAGE 1
+scripts/rpc_demo.sh                           # healthy, slow, hung and killed server side by side
+
+# Hybrid MPI + OpenMP: see section 8 (-t N). Second MapReduce job: Job 2 in section 9.
+```
+
+The saved output of the RPC demo is `results/bonus/rpc_demo.txt`; the CUDA timings are in
+`results/timings/bonus/`.
+
 ---
 
 ## Repository layout
@@ -212,8 +286,12 @@ python plots/phase2.py               # -> plots/phase2/*.png, results/timings/ph
 ├── src/threads/          std::thread pipeline: reader -> workers -> writer, bounded queues
 ├── src/memexp/           memory-hierarchy and false-sharing experiments
 ├── src/mpi/              MPI version (main.cpp) and ping-pong benchmark
-├── scripts/mpi/          Docker cluster: Dockerfile, compose file, hostfile, cluster.sh
-├── scripts/bench/        benchmark runners (phase1.py, phase2.py)
+├── src/hadoop/           Hadoop Streaming mapper/combiner/reducer, normalize mapper, finalize tool
+├── src/cuda/             GPU version (bonus)
+├── src/rpc/              TCP query service and client (bonus)
+├── scripts/mpi/          Docker MPI cluster: Dockerfile, compose file, hostfile, cluster.sh
+├── scripts/hadoop/       Docker Hadoop cluster: compose file, config, cluster.sh, job.sh, local_test.sh
+├── scripts/bench/        benchmark runners (phase1.py, phase2.py, phase3.py)
 ├── plots/                plot + table scripts and their PNG output
 ├── tests/check.py        bit-exact comparison against results/reference/
 ├── data/                 raw/ and processed/ are gitignored; README has download steps
