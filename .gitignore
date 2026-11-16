@@ -1,0 +1,4 @@
+docs/PLAN.pdf
+# Dataset: full data never goes in git (only data/samples/ and data/README.md)
+data/raw/
+data/processed/

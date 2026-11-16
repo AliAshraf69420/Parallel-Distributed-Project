@@ -1,0 +1,13 @@
+# Python environment for preprocessing, reference results and plots.
+# (The C/C++ code — OpenMP, MPI, Hadoop Streaming — is built with system tools.)
+#   conda env create -f environment.yml
+#   conda activate sw401
+#   conda env update -f environment.yml --prune   # after editing this file
+name: sw401
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - numpy=2
+  - pillow=11
+  - matplotlib   # plots/ (speedup, scaling, cache experiments)
